@@ -16,16 +16,3 @@ export async function GET() {
   }
 }
 
-export async function POST(request) {
-  try {
-    const db = await createConnection('project'); // project == database name
-    const { name } = await request.json();
-    const sql = "INSERT INTO Students (name) VALUES (?)";
-    await db.query(sql, [name]);
-    return NextResponse.json({ message: "Student added successfully" });
-  }
-  catch (error) {
-    console.log(error);
-    return NextResponse.json({ error: error.message });
-  }
-}
