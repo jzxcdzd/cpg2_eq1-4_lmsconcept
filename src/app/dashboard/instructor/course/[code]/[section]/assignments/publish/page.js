@@ -1,7 +1,9 @@
 "use client"
+import { Assignment } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
+import AddAssignmentPane from './assignment';
 
-export default function courseAssignments() {
+export default function assignment() {
   const [posts, setPosts] = useState([]);
 
   useEffect(() => {
@@ -20,11 +22,7 @@ export default function courseAssignments() {
   }, []);
 
   return (
-
-    // Essentially andito dapat yung component elements, like nakawrap sila
-
-    <div>
-      <h1> Course Assignments page </h1>
-    </div>
+    <>
+          <AddAssignmentPane /></>
   );
 }

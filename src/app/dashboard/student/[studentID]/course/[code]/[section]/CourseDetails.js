@@ -2,27 +2,29 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
-export default function CourseDetails() {
+function CourseDetails() {
   const params = useParams();
   const [courseDetails, setCourseDetails] = useState([]);
   const [code, setCode] = useState('');
   const [section, setSection] = useState('');
+  const [studentID, setstudentID] = useState('');
 
   useEffect(() => {
     const unwrapParams = async () => {
       const unwrappedParams = await params;
       setCode(unwrappedParams.code);
       setSection(unwrappedParams.section);
+      setstudentID(unwrappedParams.studentID);
     };
 
     unwrapParams();
   }, [params]);
 
   useEffect(() => {
-    if (code && section) {
+    if (code && section && studentID) {
       const fetchData = async () => {
         try {
-          const response = await fetch(`/api/course/${code}/${section}`);
+          const response = await fetch(`/api/dashboard/student/${studentID}/course/${code}/${section}`);
           const data = await response.json();
           console.log("API Response:", data.courseDetails); 
           setCourseDetails(data.courseDetails || []);
@@ -33,7 +35,7 @@ export default function CourseDetails() {
 
       fetchData();
     }
-  }, [code, section]);
+  }, [studentID, code, section]);
 
   return (
     <div>
@@ -52,3 +54,5 @@ export default function CourseDetails() {
     </div>
   );
 }
+
+export default CourseDetails;
