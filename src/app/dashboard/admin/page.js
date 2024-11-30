@@ -67,11 +67,25 @@ export default function Dashboard() {
     assignStudent: false, // Add this
   });
   
+    // Update the initial state
   const [newEntry, setNewEntry] = useState({
     course: { courseName: "", courseCode: "", description: "" },
     sections: { courseID: "", section: "", instructorID: "" },
-    student: { firstName: "", lastName: "", email: "", bio: "", birthday: "" },
-    instructor: { firstName: "", lastName: "", email: "" },
+    student: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      bio: "",
+      username: "",
+      password: "",
+    },
+    instructor: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      username: "",
+      password: "",
+    },
     assignStudent: { studentID: "", courseID: "", sectionID: "" },
   });
 
@@ -378,6 +392,7 @@ export default function Dashboard() {
           </DialogActions>
         </Dialog>
       );
+            // In the renderDialog function
       case "student":
         return (
           <Dialog
@@ -422,26 +437,30 @@ export default function Dashboard() {
                   type="email"
                 />
                 <TextField
+                  label="Username"
+                  name="username"
+                  value={newEntry.student.username}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Password"
+                  name="password"
+                  value={newEntry.student.password}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                  type="password"
+                />
+                <TextField
                   label="Bio"
                   name="bio"
                   value={newEntry.student.bio}
                   onChange={(e) => handleChange("student", e)}
                   fullWidth
-                  required
                   multiline
                   rows={3}
-                />
-                <TextField
-                  label="Birthday"
-                  name="birthday"
-                  type="date"
-                  value={newEntry.student.birthday}
-                  onChange={(e) => handleChange("student", e)}
-                  fullWidth
-                  required
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
                 />
               </Box>
             </DialogContent>
@@ -464,6 +483,7 @@ export default function Dashboard() {
             </DialogActions>
           </Dialog>
         );
+            // In the renderDialog function
       case "instructor":
         return (
           <Dialog
@@ -506,6 +526,23 @@ export default function Dashboard() {
                   fullWidth
                   required
                   type="email"
+                />
+                <TextField
+                  label="Username"
+                  name="username"
+                  value={newEntry.instructor.username}
+                  onChange={(e) => handleChange("instructor", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Password"
+                  name="password"
+                  value={newEntry.instructor.password}
+                  onChange={(e) => handleChange("instructor", e)}
+                  fullWidth
+                  required
+                  type="password"
                 />
               </Box>
             </DialogContent>
