@@ -7,18 +7,59 @@ const CourseCard = ({ course }) => {
   const { studentID } = useParams();
 
   return (
-    <Card sx={{ minWidth: 275, margin: "1rem", backgroundColor: "#f5f5f5", display: 'flex', flexDirection: 'column', height: 200 }}>
-      <Box sx={{ height: '50%', backgroundColor: course.color }} />
-      <CardContent sx={{ height: '50%' }}>
-        <Typography variant="h6" component="div" gutterBottom sx={{ color: course.color }}>
-          <Link href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}`} color="inherit" underline="hover">
-            {course.courseName} ({course.courseCode})
+    <Card
+      sx={{
+        minWidth: 275,
+        margin: "1rem",
+        backgroundColor: "#f5f5f5",
+        display: 'flex',
+        flexDirection: 'column',
+        height: 250, // Fixed height for uniformity
+      }}
+    >
+      {/* Colored Upper Half */}
+      <Box sx={{ height: '40%', backgroundColor: course.color }} />
+
+      {/* Card Content Lower Half */}
+      <CardContent
+        sx={{
+          height: '60%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Course Title */}
+        <Typography
+          variant="h6"
+          component="div"
+          gutterBottom
+          sx={{
+            color: course.color,
+            fontSize: '1.2rem', // Fixed smaller font size
+          }}
+        >
+          <Link
+            href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}`}
+            color="inherit"
+            underline="hover"
+          >
+            {course.courseName}
           </Link>
-        </Typography>   
+        </Typography>
+  
+        <Typography
+          variant="subtitle2" sx={{
+            fontSize: '1rem', // Smaller font size for subtitle
+          }}
+        >
+          {course.courseCode} - {course.sectionName}
+        </Typography>
+
         <Box mt={1}>
-          <Typography variant="subtitle2">Section: {course.sectionName}</Typography>
-          <Typography variant="subtitle2">Instructor: {course.instructorFirstName} {course.instructorLastName}</Typography>
-          <Typography variant="subtitle2">Email: {course.instructorEmail}</Typography>
+          <Typography variant="subtitle2">
+            Instructor: {course.instructorFirstName} {course.instructorLastName}
+          </Typography>
         </Box>
       </CardContent>
     </Card>
@@ -51,15 +92,18 @@ const Courses = () => {
         // Add a unique color to each course
         const coursesWithColors = data.courseDetails.map((course, index) => ({
           ...course,
-          color: `hsl(${index * 60}, 70%, 50%)` // Generate a unique color for each course
+          color: `hsl(${index * 60}, 70%, 50%)`, // Generate a unique color for each course
         }));
         setCourseDetails(coursesWithColors);
       } catch (error) {
-        //console.error("Error fetching courses:", error);
+        // Handle error appropriately
+        console.error("Error fetching courses:", error);
       }
     };
 
-    fetchCourses();
+    if (studentID) {
+      fetchCourses();
+    }
   }, [studentID]);
 
   return (
