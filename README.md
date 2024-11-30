@@ -14,7 +14,7 @@ pnpm dev
 bun dev
 ```
 
-ADDED:
+Paki-run muna to bago niyo istart yung npm run dev:
 ```
 npm install @mui/icons-material @mui/material @emotion/styled @emotion/react --legacy-peer-deps
 npm install @toolpad/core --legacy-peer-deps
