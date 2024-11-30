@@ -37,6 +37,15 @@ const LessonComponent = () => {
     type: "",
     content: "",
   });
+  const [addContentDialogOpen, setAddContentDialogOpen] = useState(false);
+  const [currentLesson, setCurrentLesson] = useState({
+    lessonName: "",
+    orderIndex: "",
+  });
+  const [newContent, setNewContent] = useState({
+    type: "",
+    content: "",
+  });
 
   useEffect(() => {
     const fetchLessonData = async () => {
@@ -198,6 +207,76 @@ const LessonComponent = () => {
     });
   };
 
+  // Add Content Handlers
+  const handleAddContentClick = (lessonName, orderIndex) => {
+    setCurrentLesson({ lessonName, orderIndex });
+    setAddContentDialogOpen(true);
+  };
+
+  const handleAddContentChange = (e) => {
+    const { name, value } = e.target;
+    setNewContent((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleAddContentSubmit = async () => {
+    const { type, content } = newContent;
+    const { lessonName, orderIndex } = currentLesson;
+
+    if (!type || !content) {
+      alert("Both Type and Content are required to add new content.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/dashboard/instructor/${instructorID}/course/${code}/${section}/lessons`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "addContent",
+            lessonName,
+            orderIndex: parseInt(orderIndex, 10),
+            type,
+            content,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.error) {
+        console.error(data.error);
+      } else {
+        setLessonData((prev) => ({
+          ...prev,
+          lessons: data.lessons,
+        }));
+        setAddContentDialogOpen(false);
+        setNewContent({
+          type: "",
+          content: "",
+        });
+        setAlertOpen(true); // Show alert
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleAddContentDialogClose = () => {
+    setAddContentDialogOpen(false);
+    setCurrentLesson({ lessonName: "", orderIndex: "" });
+    setNewContent({
+      type: "",
+      content: "",
+    });
+  };
+
   if (loading) {
     return (
       <Typography variant="body1" sx={{ color: "#fff" }}>
@@ -273,31 +352,49 @@ const LessonComponent = () => {
                 <Typography variant="h6" sx={{ marginRight: 1 }}>
                   {lessonName}
                 </Typography>
-                {editMode[lessonName] ? (
-                  <Box>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={<SaveIcon />}
-                      onClick={() => handleSaveClick(lessonName)}
-                      sx={{ marginRight: 1 }}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      startIcon={<CancelIcon />}
-                      onClick={() => handleCancelClick(lessonName)}
-                    >
-                      Cancel
-                    </Button>
-                  </Box>
-                ) : (
-                  <IconButton onClick={() => handleEditClick(lessonName)} sx={{ color: "#fff" }}>
-                    <EditIcon />
+                <Box>
+                  <IconButton
+                    onClick={() =>
+                      handleAddContentClick(
+                        lessonName,
+                        groupedLessons[lessonName][0].orderIndex
+                      )
+                    }
+                    sx={{ color: "#fff", marginRight: 1 }}
+                    title="Add Content"
+                  >
+                    <AddIcon />
                   </IconButton>
-                )}
+                  {editMode[lessonName] ? (
+                    <Box>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<SaveIcon />}
+                        onClick={() => handleSaveClick(lessonName)}
+                        sx={{ marginRight: 1 }}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<CancelIcon />}
+                        onClick={() => handleCancelClick(lessonName)}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
+                  ) : (
+                    <IconButton
+                      onClick={() => handleEditClick(lessonName)}
+                      sx={{ color: "#fff" }}
+                      title="Edit Lesson"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  )}
+                </Box>
               </Box>
               {groupedLessons[lessonName].map((lesson, idx) => (
                 <Box key={idx} sx={{ marginTop: 1 }}>
@@ -387,6 +484,42 @@ const LessonComponent = () => {
           </Button>
           <Button onClick={handleAddLessonSubmit} color="primary" startIcon={<SaveIcon />}>
             Add Lesson
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Content Dialog */}
+      <Dialog open={addContentDialogOpen} onClose={handleAddContentDialogClose}>
+        <DialogTitle>Add New Content</DialogTitle>
+        <DialogContent>
+          <Typography variant="subtitle1" gutterBottom>
+            Lesson: {currentLesson.lessonName}
+          </Typography>
+          <TextField
+            label="Type"
+            name="type"
+            value={newContent.type}
+            onChange={handleAddContentChange}
+            fullWidth
+            margin="normal"
+          />
+          <TextField
+            label="Content"
+            name="content"
+            value={newContent.content}
+            onChange={handleAddContentChange}
+            fullWidth
+            margin="normal"
+            multiline
+            rows={4}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleAddContentDialogClose} color="secondary" startIcon={<CancelIcon />}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddContentSubmit} color="primary" startIcon={<SaveIcon />}>
+            Add Content
           </Button>
         </DialogActions>
       </Dialog>

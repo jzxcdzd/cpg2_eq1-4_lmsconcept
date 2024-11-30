@@ -91,7 +91,7 @@ export async function POST(req, context) {
   let db;
   try {
     const { instructorID, code, section } = context.params;
-    const { action, lessons, newLesson } = await req.json();
+    const { action, lessons, newLesson, lessonName, orderIndex, type, content } = await req.json();
 
     if (!instructorID || !code || !section) {
       return NextResponse.json(
@@ -165,12 +165,26 @@ export async function POST(req, context) {
     if (action === "add" && newLesson) {
       const { lessonName, orderIndex, type, content } = newLesson;
 
-      const insertSql = `
+      const insertLessonSql = `
         INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content)
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
-      await db.query(insertSql, [courseID, sectionID, lessonName, orderIndex, type, content]);
+      await db.query(insertLessonSql, [courseID, sectionID, lessonName, orderIndex, type, content]);
+    }
+
+    // Handle Adding New Content within an Existing Lesson
+    if (action === "addContent") {
+      if (!lessonName || !orderIndex || !type || !content) {
+        throw new Error("Missing required fields for adding content.");
+      }
+
+      const insertContentSql = `
+        INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      await db.query(insertContentSql, [courseID, sectionID, lessonName, orderIndex, type, content]);
     }
 
     await db.commit();
