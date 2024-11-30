@@ -6,22 +6,22 @@ dotenv.config();
 
 export async function GET(req, context) {
   try {
-    // Extract parameters: studentID, course code, and section
-    const { studentID } = context.params;
+    // Extract parameter: instructorID
+    const { instructorID } = context.params;
 
-    // Validate parameters
-    if (!studentID) {
+    // Validate parameter
+    if (!instructorID) {
       return NextResponse.json({
-        error: "Missing required parameters: code, section, or studentID",
+        error: "Missing required parameter: instructorID",
       });
     }
 
     // Establish a database connection
     const db = await createConnection("project");
 
-    // SQL query to fetch courses for the specific student
+    // SQL query to fetch courses assigned to the specific instructor
     const sql = `
-    SELECT 
+      SELECT 
         Courses.name AS courseName,
         Courses.code AS courseCode,
         Courses.description AS courseDescription,
@@ -36,31 +36,24 @@ export async function GET(req, context) {
       INNER JOIN 
         Sections ON Courses.courseID = Sections.courseID
       INNER JOIN 
-        Enrollments ON Sections.sectionID = Enrollments.sectionID
-      INNER JOIN 
-        Students ON Enrollments.studentID = Students.studentID
-      INNER JOIN 
         Instructors ON Sections.instructorID = Instructors.instructorID
       LEFT JOIN 
         SectionAssignments ON Sections.sectionID = SectionAssignments.sectionID
       LEFT JOIN 
         Assignments ON SectionAssignments.assignmentID = Assignments.assignmentID
-      LEFT JOIN 
-        Submissions ON Assignments.assignmentID = Submissions.assignmentID 
-                    AND Submissions.studentID = Students.studentID
       WHERE 
-        Students.studentID = ?
+        Instructors.instructorID = ?
       ORDER BY 
         Courses.name, Assignments.dueDate;
     `;
 
     // Query the database
-    const [courseDetails] = await db.query(sql, [studentID]);
+    const [courseDetails] = await db.query(sql, [instructorID]);
 
     // Handle empty results
     if (!courseDetails || courseDetails.length === 0) {
       return NextResponse.json({
-        message: "No courses found for the given student, course code, and section.",
+        message: "No courses found for the given instructor.",
       });
     }
 

@@ -4,23 +4,18 @@ import { Box, Card, CardContent, Typography, Grid, Link } from '@mui/material';
 import { useParams } from 'next/navigation';
 
 const CourseCard = ({ course }) => {
-  const { studentID } = useParams();
+  const { instructorID } = useParams();
 
   return (
     <Card sx={{ minWidth: 275, margin: "1rem", backgroundColor: "#f5f5f5" }}>
       <CardContent>
         <Typography variant="h5" component="div" gutterBottom>
-          <Link href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}`} color="inherit" underline="hover">
+          <Link href={`/dashboard/instructor/${instructorID}/course/${course.courseCode}/${course.sectionName}`} color="inherit" underline="hover">
             {course.courseName} ({course.courseCode})
           </Link>
         </Typography>   
-        <Typography variant="body2" color="text.secondary">
-          {course.courseDescription}
-        </Typography>
         <Box mt={2}>
           <Typography variant="subtitle2">Section: {course.sectionName}</Typography>
-          <Typography variant="subtitle2">Instructor: {course.instructorFirstName} {course.instructorLastName}</Typography>
-          <Typography variant="subtitle2">Email: {course.instructorEmail}</Typography>
         </Box>
       </CardContent>
     </Card>
@@ -31,12 +26,12 @@ const CourseCard = ({ course }) => {
 const Courses = () => {
   const params = useParams();
   const [courseDetails, setCourseDetails] = useState([]);
-  const [studentID, setStudentID] = useState('');
+  const [instructorID, setInstructorID] = useState('');
 
   useEffect(() => {
     const unwrapParams = async () => {
       const unwrappedParams = await params;
-      setStudentID(unwrappedParams.studentID);
+      setInstructorID(unwrappedParams.instructorID);
     };
 
     unwrapParams();
@@ -45,7 +40,7 @@ const Courses = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch(`/api/dashboard/student/${studentID}`);
+        const response = await fetch(`/api/dashboard/instructor/${instructorID}`);
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
@@ -58,7 +53,7 @@ const Courses = () => {
     };
 
     fetchCourses();
-  }, [studentID]);
+  }, [instructorID]);
 
   return (
     <Box sx={{ padding: "2rem" }}>
