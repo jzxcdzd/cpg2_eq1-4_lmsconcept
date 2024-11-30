@@ -7,17 +7,15 @@ const CourseCard = ({ course }) => {
   const { studentID } = useParams();
 
   return (
-    <Card sx={{ minWidth: 275, margin: "1rem", backgroundColor: "#f5f5f5" }}>
-      <CardContent>
-        <Typography variant="h5" component="div" gutterBottom>
+    <Card sx={{ minWidth: 275, margin: "1rem", backgroundColor: "#f5f5f5", display: 'flex', flexDirection: 'column', height: 200 }}>
+      <Box sx={{ height: '50%', backgroundColor: course.color }} />
+      <CardContent sx={{ height: '50%' }}>
+        <Typography variant="h6" component="div" gutterBottom sx={{ color: course.color }}>
           <Link href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}`} color="inherit" underline="hover">
             {course.courseName} ({course.courseCode})
           </Link>
         </Typography>   
-        <Typography variant="body2" color="text.secondary">
-          {course.courseDescription}
-        </Typography>
-        <Box mt={2}>
+        <Box mt={1}>
           <Typography variant="subtitle2">Section: {course.sectionName}</Typography>
           <Typography variant="subtitle2">Instructor: {course.instructorFirstName} {course.instructorLastName}</Typography>
           <Typography variant="subtitle2">Email: {course.instructorEmail}</Typography>
@@ -50,8 +48,12 @@ const Courses = () => {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
-        setCourseDetails(data.courseDetails);
-        //console.log("API Response:", data.courseDetails);
+        // Add a unique color to each course
+        const coursesWithColors = data.courseDetails.map((course, index) => ({
+          ...course,
+          color: `hsl(${index * 60}, 70%, 50%)` // Generate a unique color for each course
+        }));
+        setCourseDetails(coursesWithColors);
       } catch (error) {
         //console.error("Error fetching courses:", error);
       }
