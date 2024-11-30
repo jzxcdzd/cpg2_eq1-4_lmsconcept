@@ -91,7 +91,15 @@ export async function POST(req, context) {
   let db;
   try {
     const { instructorID, code, section } = context.params;
-    const { action, lessons, newLesson, lessonName, orderIndex, type, content } = await req.json();
+    const {
+      action,
+      lessons,
+      newLesson,
+      lessonName,
+      orderIndex,
+      type,
+      content,
+    } = await req.json();
 
     if (!instructorID || !code || !section) {
       return NextResponse.json(
@@ -144,7 +152,6 @@ export async function POST(req, context) {
 
     await db.beginTransaction();
 
-    // Handle Updating Existing Lessons
     if (action === "update" && Array.isArray(lessons)) {
       const updateSql = `
         UPDATE SectionLessonContent
@@ -161,30 +168,90 @@ export async function POST(req, context) {
       }
     }
 
-    // Handle Adding New Lesson
     if (action === "add" && newLesson) {
-      const { lessonName, orderIndex, type, content } = newLesson;
+      const { lessonName, type, content } = newLesson;
 
       const insertLessonSql = `
         INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content)
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
-      await db.query(insertLessonSql, [courseID, sectionID, lessonName, orderIndex, type, content]);
+      // Determine the next OrderIndex for the new lesson
+      const [maxOrder] = await db.query(
+        `SELECT MAX(OrderIndex) as maxOrder FROM SectionLessonContent WHERE courseID = ? AND sectionID = ? AND Lesson = ?`,
+        [courseID, sectionID, lessonName]
+      );
+      const nextOrderIndex = maxOrder[0].maxOrder ? maxOrder[0].maxOrder + 1 : 1;
+
+      await db.query(insertLessonSql, [
+        courseID,
+        sectionID,
+        lessonName,
+        nextOrderIndex,
+        type,
+        content,
+      ]);
     }
 
-    // Handle Adding New Content within an Existing Lesson
     if (action === "addContent") {
-      if (!lessonName || !orderIndex || !type || !content) {
+      if (!lessonName || !type || !content) {
         throw new Error("Missing required fields for adding content.");
       }
+
+      // Determine the next OrderIndex within the lesson
+      const [maxOrder] = await db.query(
+        `SELECT MAX(OrderIndex) as maxOrder FROM SectionLessonContent WHERE courseID = ? AND sectionID = ? AND Lesson = ?`,
+        [courseID, sectionID, lessonName]
+      );
+      const nextOrderIndex = maxOrder[0].maxOrder ? maxOrder[0].maxOrder + 1 : 1;
 
       const insertContentSql = `
         INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content)
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
-      await db.query(insertContentSql, [courseID, sectionID, lessonName, orderIndex, type, content]);
+      await db.query(insertContentSql, [
+        courseID,
+        sectionID,
+        lessonName,
+        nextOrderIndex,
+        type,
+        content,
+      ]);
+    }
+
+    if (action === "delete") {
+      if (!lessonName || !orderIndex || !type || !content) {
+        throw new Error("Missing required fields for deleting content.");
+      }
+
+      const deleteSql = `
+        DELETE FROM SectionLessonContent
+        WHERE courseID = ?
+          AND sectionID = ?
+          AND Lesson = ?
+          AND OrderIndex = ?
+          AND Type = ?
+          AND Content = ?
+      `;
+
+      await db.query(deleteSql, [courseID, sectionID, lessonName, orderIndex, type, content]);
+    }
+
+    // Handle Deleting Entire Lesson
+    if (action === "deleteLesson") {
+      if (!lessonName) {
+        throw new Error("Missing required field: lessonName.");
+      }
+
+      const deleteLessonSql = `
+        DELETE FROM SectionLessonContent
+        WHERE courseID = ?
+          AND sectionID = ?
+          AND Lesson = ?
+      `;
+
+      await db.query(deleteLessonSql, [courseID, sectionID, lessonName]);
     }
 
     await db.commit();

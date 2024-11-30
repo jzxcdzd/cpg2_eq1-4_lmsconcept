@@ -6,7 +6,14 @@ const App = () => {
   return (
     <div>
       <CourseDetails />
-      <LessonComponent />
+      {lessons.map((lesson) => (
+        <LessonComponent
+          key={lesson.id}
+          lessonTitle={lesson.title}
+          presentationLink={lesson.presentationLink}
+          details={lesson.details}
+        />
+      ))}
     </div>
   );
 };
