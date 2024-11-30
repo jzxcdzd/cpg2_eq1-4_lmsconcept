@@ -22,21 +22,26 @@ import CancelIcon from "@mui/icons-material/Cancel";
 export default function Dashboard() {
   const [courses, setCourses] = useState([]);
   const [instructors, setInstructors] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [sections, setSections] = useState([]);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  
 
   useEffect(() => {
     fetchInitialData();
   }, []);
 
-  const fetchInitialData = async () => {
+    const fetchInitialData = async () => {
     try {
       const res = await fetch("/api/dashboard/admin/");
       const data = await res.json();
       if (res.ok) {
         setCourses(data.courses);
         setInstructors(data.instructors);
+        setStudents(data.students); // Add this line
+        setSections(data.sections); // Add this line
       } else {
         showSnackbar(data.error || "Failed to fetch initial data.", "error");
       }
@@ -46,27 +51,28 @@ export default function Dashboard() {
     }
   };
 
-  const addOptions = [
+    const addOptions = [
     { label: "Add New Course", color: "primary", type: "course" },
     { label: "Assign Sections & Instructors", color: "primary", type: "sections" },
     { label: "Add New Student", color: "primary", type: "student" },
     { label: "Add New Instructor", color: "primary", type: "instructor" },
+    { label: "Assign Student to Section", color: "primary", type: "assignStudent" },
   ];
 
-  // State for Add Dialogs
-  const [dialogState, setDialogState] = useState({
+    const [dialogState, setDialogState] = useState({
     course: false,
     sections: false,
     student: false,
     instructor: false,
+    assignStudent: false, // Add this
   });
-
-  // State for new entries
+  
   const [newEntry, setNewEntry] = useState({
     course: { courseName: "", courseCode: "", description: "" },
-    sections: { courseID: "", sectionName: "", instructorID: "" },
+    sections: { courseID: "", section: "", instructorID: "" },
     student: { firstName: "", lastName: "", email: "", bio: "", birthday: "" },
     instructor: { firstName: "", lastName: "", email: "" },
+    assignStudent: { studentID: "", courseID: "", sectionID: "" },
   });
 
   // Handlers for Dialogs
@@ -97,32 +103,35 @@ export default function Dashboard() {
     const dataToSend = newEntry[type];
 
     // Validation
-    const isValid = Object.values(dataToSend).every(
-      (field) => field.toString().trim() !== ""
-    );
-    if (!isValid) {
-      showSnackbar("All fields are required.", "error");
-      return;
-    }
+  const isValid = Object.values(dataToSend).every(
+    (field) => field.toString().trim() !== ""
+  );
+  if (!isValid) {
+    showSnackbar("All fields are required.", "error");
+    return;
+  }
 
-    let action = "";
-    switch (type) {
-      case "course":
-        action = "addCourse";
-        break;
-      case "sections":
-        action = "assignSections";
-        break;
-      case "student":
-        action = "addStudent";
-        break;
-      case "instructor":
-        action = "addInstructor";
+  let action = "";
+  switch (type) {
+    case "course":
+      action = "addCourse";
+      break;
+    case "sections":
+      action = "assignSections";
+      break;
+    case "student":
+      action = "addStudent";
+      break;
+    case "instructor":
+      action = "addInstructor";
+      break;
+      case "assignStudent":
+        action = "assignStudent";
         break;
       default:
         return;
     }
-
+  
     try {
       const response = await fetch("/api/dashboard/admin/", {
         method: "POST",
@@ -131,9 +140,9 @@ export default function Dashboard() {
         },
         body: JSON.stringify({ action, data: dataToSend }),
       });
-
+  
       const data = await response.json();
-
+  
       if (response.ok) {
         showSnackbar(`${capitalize(type)} added successfully!`, "success");
         handleCloseDialog(type);
@@ -322,8 +331,8 @@ export default function Dashboard() {
               {/* Section Name Input */}
               <TextField
                 label="Section Name"
-                name="sectionName"
-                value={newEntry.sections.sectionName}
+                name="section"
+                value={newEntry.sections.section}
                 onChange={(e) => handleChange("sections", e)}
                 fullWidth
                 required
@@ -519,6 +528,109 @@ export default function Dashboard() {
             </DialogActions>
           </Dialog>
         );
+
+        case "assignStudent":
+      // Filter sections based on selected courseID
+      const filteredSections = sections.filter(
+        (section) => section.courseID === newEntry.assignStudent.courseID
+      );
+
+      return (
+        <Dialog
+          open={dialogState.assignStudent}
+          onClose={() => handleCloseDialog("assignStudent")}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Assign Student to Course and Section</DialogTitle>
+          <DialogContent>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                marginTop: 1,
+              }}
+            >
+              {/* Student Selection */}
+              <TextField
+                select
+                label="Student"
+                name="studentID"
+                value={newEntry.assignStudent.studentID}
+                onChange={(e) => handleChange("assignStudent", e)}
+                fullWidth
+                required
+              >
+                {students.map((student) => (
+                  <MenuItem
+                    key={student.studentID}
+                    value={student.studentID}
+                  >
+                    {`${student.firstName} ${student.lastName}`}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {/* Course Selection */}
+              <TextField
+                select
+                label="Course"
+                name="courseID"
+                value={newEntry.assignStudent.courseID}
+                onChange={(e) => handleChange("assignStudent", e)}
+                fullWidth
+                required
+              >
+                {courses.map((course) => (
+                  <MenuItem key={course.courseID} value={course.courseID}>
+                    {course.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {/* Section Selection */}
+              <TextField
+                select
+                label="Section"
+                name="sectionID"
+                value={newEntry.assignStudent.sectionID}
+                onChange={(e) => handleChange("assignStudent", e)}
+                fullWidth
+                required
+                disabled={!newEntry.assignStudent.courseID} // Disable until course is selected
+              >
+                {filteredSections.map((section) => (
+                  <MenuItem
+                    key={section.sectionID}
+                    value={section.sectionID}
+                  >
+                    {section.section}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => handleCloseDialog("assignStudent")}
+              color="secondary"
+              startIcon={<CancelIcon />}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleSubmit("assignStudent")}
+              color="primary"
+              variant="contained"
+              startIcon={<SaveIcon />}
+            >
+              Assign Student
+            </Button>
+          </DialogActions>
+        </Dialog>
+      );
+
       default:
         return null;
     }

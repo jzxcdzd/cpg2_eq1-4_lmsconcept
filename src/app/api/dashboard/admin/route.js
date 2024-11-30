@@ -21,8 +21,20 @@ export async function GET(req, context) {
       FROM Instructors
     `);
 
+    // **Fetch Students**
+    const [students] = await db.query(`
+      SELECT studentID, firstName, lastName, email
+      FROM Students
+    `);
+
+        // In the GET handler
+    const [sections] = await db.query(`
+      SELECT s.sectionID, s.section, s.courseID, c.name AS courseName
+      FROM Sections s
+      JOIN Courses c ON s.courseID = c.courseID
+    `);
     return NextResponse.json(
-      { courses, instructors },
+      { courses, instructors, students, sections },
       { status: 200 }
     );
   } catch (error) {
@@ -55,6 +67,8 @@ export async function POST(req, context) {
         return await addStudent(db, data);
       case "addInstructor":
         return await addInstructor(db, data);
+      case "assignStudent":
+        return await assignStudent(db, data); // Add this case
       default:
         return NextResponse.json(
           { error: "Invalid action." },
@@ -108,10 +122,10 @@ async function addCourse(db, data) {
 
 // Handler to assign sections and instructors
 async function assignSections(db, data) {
-  const { courseID, sectionName, instructorID } = data;
+  const { courseID, section, instructorID } = data;
 
   // Validation
-  if (!courseID || !sectionName || !instructorID) {
+  if (!courseID || !section || !instructorID) {
     return NextResponse.json(
       { error: "All fields are required." },
       { status: 400 }
@@ -148,7 +162,7 @@ async function assignSections(db, data) {
       VALUES (?, ?, ?)
     `;
     const [result] = await db.query(insertSql, [
-      sectionName,
+      section,
       courseID,
       instructorID,
     ]);
@@ -164,6 +178,38 @@ async function assignSections(db, data) {
     console.error("Error assigning sections:", error);
     return NextResponse.json(
       { error: "Failed to assign sections." },
+      { status: 500 }
+    );
+  }
+}
+
+async function assignStudent(db, data) {
+  const { studentID, courseID, sectionID } = data;
+
+  // Validation
+  if (!studentID || !courseID || !sectionID) {
+    return NextResponse.json(
+      { error: "Student, Course, and Section are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Assign student to the course and section
+    const sql = `
+      INSERT INTO Enrollments (studentID, courseID, sectionID)
+      VALUES (?, ?, ?)
+    `;
+    await db.query(sql, [studentID, courseID, sectionID]);
+
+    return NextResponse.json(
+      { message: "Student assigned to course and section successfully." },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Error assigning student:", error);
+    return NextResponse.json(
+      { error: "Failed to assign student to course and section." },
       { status: 500 }
     );
   }
