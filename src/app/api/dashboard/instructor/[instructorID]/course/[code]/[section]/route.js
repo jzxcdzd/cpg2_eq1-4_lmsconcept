@@ -19,12 +19,14 @@ export async function GET(req, context) {
     // Establish a database connection
     const db = await createConnection("project");
 
-    // SQL query to fetch courses for the specific instructor
-    const sql = `
+    // SQL query to fetch course details
+    const courseSql = `
       SELECT 
+        Courses.courseID AS courseID,
         Courses.name AS courseName,
         Courses.code AS courseCode,
         Courses.description AS courseDescription,
+        Sections.sectionID AS sectionID,
         Sections.section AS sectionName,
         Instructors.firstName AS instructorFirstName,
         Instructors.lastName AS instructorLastName,
@@ -47,18 +49,44 @@ export async function GET(req, context) {
         AND Sections.section = ?
     `;
 
-    // Query the database
-    const [courseDetails] = await db.query(sql, [instructorID, code, section]);
+    // Query for course details
+    const [courseDetails] = await db.query(courseSql, [instructorID, code, section]);
 
-    // Handle empty results
+    // Handle empty course details
     if (!courseDetails || courseDetails.length === 0) {
       return NextResponse.json({
         message: "No courses found for the given instructor, course code, and section.",
       });
     }
 
-    // Respond with course details
-    return NextResponse.json({ courseDetails });
+    const { courseID, sectionID } = courseDetails[0]; // Extract courseID and sectionID
+
+    // SQL query to fetch lesson contents related to the course and section
+    const lessonsSql = `
+      SELECT 
+  courseID,
+  sectionID,
+  Lesson AS lessonName,
+  OrderIndex AS orderIndex,  
+  Type AS type,
+  Content AS content
+FROM 
+  SectionLessonContent
+WHERE 
+  courseID = ?
+  AND sectionID = ?
+ORDER BY 
+  Lesson, OrderIndex
+    `;
+
+    // Query for lessons
+    const [lessons] = await db.query(lessonsSql, [courseID, sectionID]);
+
+    // Respond with combined course details and lessons
+    return NextResponse.json({
+      courseDetails: courseDetails[0],
+      lessons,
+    });
   } catch (error) {
     console.error("Error occurred:", error.message);
     return NextResponse.json({ error: error.message });
