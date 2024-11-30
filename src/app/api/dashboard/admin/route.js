@@ -7,46 +7,28 @@ dotenv.config();
 
 export async function GET(req, context) {
   try {
-    // Establish a database connection
     const db = await createConnection("project");
 
-    // SQL query to fetch courses with their sections and instructors
-    const sql = `
-      SELECT 
-        Courses.courseID AS courseID,
-        Courses.code AS courseCode,
-        Courses.name AS courseName,
-        Sections.sectionID AS sectionID,
-        Sections.section AS sectionName,
-        Instructors.instructorID AS instructorID,
-        CONCAT(Instructors.firstName, ' ', Instructors.lastName) AS instructorName,
-        Instructors.email AS instructorEmail
-      FROM 
-        Courses
-      JOIN 
-        Sections ON Courses.courseID = Sections.courseID
-      JOIN 
-        Instructors ON Sections.instructorID = Instructors.instructorID
-      ORDER BY 
-        Courses.courseID, Sections.sectionID
-    `;
+    // Fetch Courses
+    const [courses] = await db.query(`
+      SELECT DISTINCT courseID, name, code, description
+      FROM Courses
+    `);
 
-    // Query the database
-    const [courseDetails] = await db.query(sql);
+    // Fetch Instructors
+    const [instructors] = await db.query(`
+      SELECT instructorID, firstName, lastName, email
+      FROM Instructors
+    `);
 
-    // Handle empty results
-    if (courseDetails.length === 0) {
-      return NextResponse.json(
-        { message: "No courses found." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ courses: courseDetails }, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching courses:", error);
     return NextResponse.json(
-      { error: "Failed to fetch courses." },
+      { courses, instructors },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch data." },
       { status: 500 }
     );
   }
@@ -93,7 +75,7 @@ async function addCourse(db, data) {
   const { courseName, courseCode, description } = data;
 
   // Validation
-  if (!courseName || ! courseCode || !description) {
+  if (!courseName || !courseCode || !description) {
     return NextResponse.json(
       { error: "All fields are required." },
       { status: 400 }
@@ -102,10 +84,14 @@ async function addCourse(db, data) {
 
   try {
     const insertSql = `
-      INSERT INTO Courses (code, name, description)
+      INSERT INTO Courses (name, code, description)
       VALUES (?, ?, ?)
     `;
-    const [result] = await db.query(insertSql, [courseCode, courseName, description]);
+    const [result] = await db.query(insertSql, [
+      courseName,
+      courseCode,
+      description,
+    ]);
 
     return NextResponse.json(
       { message: "Course added successfully.", courseID: result.insertId },
@@ -161,10 +147,17 @@ async function assignSections(db, data) {
       INSERT INTO Sections (section, courseID, instructorID)
       VALUES (?, ?, ?)
     `;
-    const [result] = await db.query(insertSql, [sectionName, courseID, instructorID]);
+    const [result] = await db.query(insertSql, [
+      sectionName,
+      courseID,
+      instructorID,
+    ]);
 
     return NextResponse.json(
-      { message: "Section assigned successfully.", sectionID: result.insertId },
+      {
+        message: "Section assigned successfully.",
+        sectionID: result.insertId,
+      },
       { status: 201 }
     );
   } catch (error) {
@@ -178,10 +171,10 @@ async function assignSections(db, data) {
 
 // Handler to add a new student
 async function addStudent(db, data) {
-  const { firstName, lastName, email, bio, birthday } = data;
+  const { firstName, lastName, email, bio, username, password } = data;
 
   // Validation
-  if (!firstName || !lastName || !email || !bio || !birthday) {
+  if (!firstName || !lastName || !email || !bio || !username || !password) {
     return NextResponse.json(
       { error: "All fields are required." },
       { status: 400 }
@@ -189,23 +182,33 @@ async function addStudent(db, data) {
   }
 
   try {
-    const insertSql = `
-      INSERT INTO Students (firstName, lastName, email, bio, birthday)
-      VALUES (?, ?, ?, ?, ?)
+    // Start transaction
+    await db.beginTransaction();
+
+    // Insert into Accounts table
+    const accountSql = `
+      INSERT INTO Accounts (identifierID, username, password, usertype)
+      VALUES (?, ?, ?, ?)
     `;
-    const [result] = await db.query(insertSql, [
-      firstName,
-      lastName,
-      email,
-      bio,
-      birthday,
-    ]);
+    await db.query(accountSql, [email, username, password, 3]); // usertype 3 for student
+
+    // Insert into Students table
+    const studentSql = `
+      INSERT INTO Students (firstName, lastName, email, bio)
+      VALUES (?, ?, ?, ?)
+    `;
+    await db.query(studentSql, [firstName, lastName, email, bio]);
+
+    // Commit transaction
+    await db.commit();
 
     return NextResponse.json(
-      { message: "Student added successfully.", studentID: result.insertId },
+      { message: "Student added successfully." },
       { status: 201 }
     );
   } catch (error) {
+    // Rollback transaction on error
+    await db.rollback();
     console.error("Error adding student:", error);
     return NextResponse.json(
       { error: "Failed to add student." },
@@ -216,10 +219,10 @@ async function addStudent(db, data) {
 
 // Handler to add a new instructor
 async function addInstructor(db, data) {
-  const { firstName, lastName, email } = data;
+  const { firstName, lastName, email, username, password } = data;
 
   // Validation
-  if (!firstName || !lastName || !email) {
+  if (!firstName || !lastName || !email || !username || !password) {
     return NextResponse.json(
       { error: "All fields are required." },
       { status: 400 }
@@ -227,17 +230,33 @@ async function addInstructor(db, data) {
   }
 
   try {
-    const insertSql = `
+    // Start transaction
+    await db.beginTransaction();
+
+    // Insert into Accounts table
+    const accountSql = `
+      INSERT INTO Accounts (identifierID, username, password, usertype)
+      VALUES (?, ?, ?, ?)
+    `;
+    await db.query(accountSql, [email, username, password, 2]); // usertype 2 for instructor
+
+    // Insert into Instructors table
+    const instructorSql = `
       INSERT INTO Instructors (firstName, lastName, email)
       VALUES (?, ?, ?)
     `;
-    const [result] = await db.query(insertSql, [firstName, lastName, email]);
+    await db.query(instructorSql, [firstName, lastName, email]);
+
+    // Commit transaction
+    await db.commit();
 
     return NextResponse.json(
-      { message: "Instructor added successfully.", instructorID: result.insertId },
+      { message: "Instructor added successfully." },
       { status: 201 }
     );
   } catch (error) {
+    // Rollback transaction on error
+    await db.rollback();
     console.error("Error adding instructor:", error);
     return NextResponse.json(
       { error: "Failed to add instructor." },

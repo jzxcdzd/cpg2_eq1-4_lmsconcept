@@ -1,7 +1,6 @@
 // page.js
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   Box,
   Button,
@@ -23,69 +22,35 @@ import CancelIcon from "@mui/icons-material/Cancel";
 export default function Dashboard() {
   const [courses, setCourses] = useState([]);
   const [instructors, setInstructors] = useState([]);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
 
   useEffect(() => {
-    const fetchInitialCourses = async () => {
-      try {
-        const res = await fetch("/api/dashboard/admin/courses/");
-        const data = await res.json();
-        if (res.ok) {
-          setCourses(data.courses);
-        } else {
-          setSnackbarMessage(data.message || "Failed to fetch courses.");
-          setSnackbarSeverity("error");
-          setSnackbarOpen(true);
-        }
-      } catch (error) {
-        console.log("Error fetching courses:", error);
-        setSnackbarMessage("An unexpected error occurred.");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-      }
-    };
-
-    fetchInitialCourses();
+    fetchInitialData();
   }, []);
 
-  const addOptions = [
-    {
-      label: "Add New Course",
-      color: "primary",
-      type: "course",
-    },
-    {
-      label: "Assign Sections & Instructors",
-      color: "primary",
-      type: "sections",
-    },
-    {
-      label: "Add New Student",
-      color: "primary",
-      type: "student",
-    },
-    {
-      label: "Add New Instructor",
-      color: "primary",
-      type: "instructor",
-    },
-  ];
+  const fetchInitialData = async () => {
+    try {
+      const res = await fetch("/api/dashboard/admin/");
+      const data = await res.json();
+      if (res.ok) {
+        setCourses(data.courses);
+        setInstructors(data.instructors);
+      } else {
+        showSnackbar(data.error || "Failed to fetch initial data.", "error");
+      }
+    } catch (error) {
+      console.error("Error fetching initial data:", error);
+      showSnackbar("An unexpected error occurred.", "error");
+    }
+  };
 
-  const modifyOptions = [
-    {
-      href: "/dashboard/admin/modify-courses",
-      label: "Modify Courses",
-      color: "secondary",
-    },
-    {
-      href: "/dashboard/admin/modify-students",
-      label: "Modify Students",
-      color: "secondary",
-    },
-    {
-      href: "/dashboard/admin/modify-instructors",
-      label: "Modify Instructors",
-      color: "secondary",
-    },
+  const addOptions = [
+    { label: "Add New Course", color: "primary", type: "course" },
+    { label: "Assign Sections & Instructors", color: "primary", type: "sections" },
+    { label: "Add New Student", color: "primary", type: "student" },
+    { label: "Add New Instructor", color: "primary", type: "instructor" },
   ];
 
   // State for Add Dialogs
@@ -104,32 +69,8 @@ export default function Dashboard() {
     instructor: { firstName: "", lastName: "", email: "" },
   });
 
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-
   // Handlers for Dialogs
-  const handleOpenDialog = async (type) => {
-    if (type === "sections") {
-      try {
-        const res = await fetch("/api/dashboard/admin/assign/");
-        const data = await res.json();
-        if (res.ok) {
-          setCourses(data.courses);
-          setInstructors(data.instructors);
-        } else {
-          setSnackbarMessage(data.error || "Failed to fetch assignment data.");
-          setSnackbarSeverity("error");
-          setSnackbarOpen(true);
-        }
-      } catch (error) {
-        console.log("Error fetching assignment data:", error);
-        setSnackbarMessage("An unexpected error occurred.");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-      }
-    }
-
+  const handleOpenDialog = (type) => {
     setDialogState((prev) => ({ ...prev, [type]: true }));
   };
 
@@ -148,10 +89,7 @@ export default function Dashboard() {
     const { name, value } = e.target;
     setNewEntry((prev) => ({
       ...prev,
-      [type]: {
-        ...prev[type],
-        [name]: value,
-      },
+      [type]: { ...prev[type], [name]: value },
     }));
   };
 
@@ -163,92 +101,56 @@ export default function Dashboard() {
       (field) => field.toString().trim() !== ""
     );
     if (!isValid) {
-      setSnackbarMessage("All fields are required.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar("All fields are required.", "error");
       return;
     }
 
-    let apiEndpoint = "";
+    let action = "";
     switch (type) {
       case "course":
-        apiEndpoint = "/api/dashboard/admin/courses/";
+        action = "addCourse";
         break;
       case "sections":
-        apiEndpoint = "/api/dashboard/admin/assign/";
+        action = "assignSections";
         break;
       case "student":
-        apiEndpoint = "/api/dashboard/admin/students/";
+        action = "addStudent";
         break;
       case "instructor":
-        apiEndpoint = "/api/dashboard/admin/instructors/";
+        action = "addInstructor";
         break;
       default:
         return;
     }
 
     try {
-      const response = await fetch(apiEndpoint, {
+      const response = await fetch("/api/dashboard/admin/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(dataToSend),
+        body: JSON.stringify({ action, data: dataToSend }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setSnackbarMessage(`${capitalize(type)} added successfully!`);
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
+        showSnackbar(`${capitalize(type)} added successfully!`, "success");
         handleCloseDialog(type);
-
-        // Refresh relevant data
-        if (type === "course") {
-          const res = await fetch("/api/dashboard/admin/courses/");
-          const updatedCourses = await res.json();
-          if (res.ok) {
-            setCourses(updatedCourses.courses);
-          }
-        }
-
-        if (type === "sections") {
-          const res = await fetch("/api/dashboard/admin/assign/");
-          const updatedData = await res.json();
-          if (res.ok) {
-            setCourses(updatedData.courses);
-            setInstructors(updatedData.instructors);
-          }
-        }
-
-        if (type === "student") {
-          const res = await fetch("/api/dashboard/admin/students/");
-          const updatedStudents = await res.json();
-          if (res.ok) {
-            setStudents(updatedStudents.students);
-          }
-        }
-
-        if (type === "instructor") {
-          const res = await fetch("/api/dashboard/admin/instructors/");
-          const updatedInstructors = await res.json();
-          if (res.ok) {
-            setInstructors(updatedInstructors.instructors);
-          }
-        }
-        
+        fetchInitialData(); // Refresh data
       } else {
-        setSnackbarMessage(data.error || `Failed to add ${type}.`);
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
+        showSnackbar(data.error || `Failed to add ${type}.`, "error");
       }
     } catch (error) {
-      console.log(error);
-      setSnackbarMessage("An unexpected error occurred.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      console.error("Error on submit:", error);
+      showSnackbar("An unexpected error occurred.", "error");
     }
+  };
+
+  const showSnackbar = (message, severity) => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
   };
 
   const handleSnackbarClose = () => {
@@ -261,7 +163,7 @@ export default function Dashboard() {
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" gutterBottom>
-        Fancy seeing you here, admin
+        Admin Dashboard
       </Typography>
 
       {/* Add Functions Section */}
@@ -290,296 +192,8 @@ export default function Dashboard() {
                 {option.label}
               </Button>
 
-              {/* Add Dialogs */}
-              {/* Add Course Dialog */}
-              {option.type === "course" && (
-                <Dialog
-                  open={dialogState.course}
-                  onClose={() => handleCloseDialog("course")}
-                  fullWidth
-                  maxWidth="sm"
-                >
-                  <DialogTitle>Add New Course</DialogTitle>
-                  <DialogContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        marginTop: 1,
-                      }}
-                    >
-                      <TextField
-                        label="Course Name"
-                        name="courseName"
-                        value={newEntry.course.courseName}
-                        onChange={(e) => handleChange("course", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        label="Course Code"
-                        name="courseCode"
-                        value={newEntry.course.courseCode}
-                        onChange={(e) => handleChange("course", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        label="Description"
-                        name="description"
-                        value={newEntry.course.description}
-                        onChange={(e) => handleChange("course", e)}
-                        fullWidth
-                        required
-                        multiline
-                        rows={4}
-                      />
-                    </Box>
-                  </DialogContent>
-                  <DialogActions>
-                    <Button
-                      onClick={() => handleCloseDialog("course")}
-                      color="secondary"
-                      startIcon={<CancelIcon />}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => handleSubmit("course")}
-                      color="primary"
-                      variant="contained"
-                      startIcon={<SaveIcon />}
-                    >
-                      Add Course
-                    </Button>
-                  </DialogActions>
-                </Dialog>
-              )}
-
-              {/* Assign Sections & Instructors Dialog */}
-              {option.type === "sections" && (
-                <Dialog
-                  open={dialogState.sections}
-                  onClose={() => handleCloseDialog("sections")}
-                  fullWidth
-                  maxWidth="sm"
-                >
-                  <DialogTitle>Assign Sections & Instructors</DialogTitle>
-                  <DialogContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        marginTop: 1,
-                      }}
-                    >
-                      <TextField
-                        select
-                        label="Course"
-                        name="courseID"
-                        value={newEntry.sections.courseID}
-                        onChange={(e) => handleChange("sections", e)}
-                        fullWidth
-                        required
-                      >
-                        {courses.map((course) => (
-                          <MenuItem
-                            key={course.courseID}
-                            value={course.courseID}
-                          >
-                            {course.courseName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                      <TextField
-                        label="Section Name"
-                        name="sectionName"
-                        value={newEntry.sections.sectionName}
-                        onChange={(e) => handleChange("sections", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        select
-                        label="Instructor"
-                        name="instructorID"
-                        value={newEntry.sections.instructorID}
-                        onChange={(e) => handleChange("sections", e)}
-                        fullWidth
-                        required
-                      >
-                        {instructors.map((instructor) => (
-                          <MenuItem
-                            key={instructor.instructorID}
-                            value={instructor.instructorID}
-                          >
-                            {instructor.firstName} {instructor.lastName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Box>
-                  </DialogContent>
-                  <DialogActions>
-                    <Button
-                      onClick={() => handleCloseDialog("sections")}
-                      color="secondary"
-                      startIcon={<CancelIcon />}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => handleSubmit("sections")}
-                      color="primary"
-                      variant="contained"
-                      startIcon={<SaveIcon />}
-                    >
-                      Assign Section
-                    </Button>
-                  </DialogActions>
-                </Dialog>
-              )}
-
-              {/* Add Student Dialog */}
-              {option.type === "student" && (
-                <Dialog
-                  open={dialogState.student}
-                  onClose={() => handleCloseDialog("student")}
-                  fullWidth
-                  maxWidth="sm"
-                >
-                  <DialogTitle>Add New Student</DialogTitle>
-                  <DialogContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        marginTop: 1,
-                      }}
-                    >
-                      <TextField
-                        label="First Name"
-                        name="firstName"
-                        value={newEntry.student.firstName}
-                        onChange={(e) => handleChange("student", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        label="Last Name"
-                        name="lastName"
-                        value={newEntry.student.lastName}
-                        onChange={(e) => handleChange("student", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        label="Email"
-                        name="email"
-                        value={newEntry.student.email}
-                        onChange={(e) => handleChange("student", e)}
-                        fullWidth
-                        required
-                        type="email"
-                      />
-                      <TextField
-                        label="Bio"
-                        name="bio"
-                        value={newEntry.student.bio}
-                        onChange={(e) => handleChange("student", e)}
-                        fullWidth
-                        required
-                        multiline
-                        rows={3}
-                      />
-                    </Box>
-                  </DialogContent>
-                  <DialogActions>
-                    <Button
-                      onClick={() => handleCloseDialog("student")}
-                      color="secondary"
-                      startIcon={<CancelIcon />}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => handleSubmit("student")}
-                      color="primary"
-                      variant="contained"
-                      startIcon={<SaveIcon />}
-                    >
-                      Add Student
-                    </Button>
-                  </DialogActions>
-                </Dialog>
-              )}
-
-              {/* Add Instructor Dialog */}
-              {option.type === "instructor" && (
-                <Dialog
-                  open={dialogState.instructor}
-                  onClose={() => handleCloseDialog("instructor")}
-                  fullWidth
-                  maxWidth="sm"
-                >
-                  <DialogTitle>Add New Instructor</DialogTitle>
-                  <DialogContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        marginTop: 1,
-                      }}
-                    >
-                      <TextField
-                        label="First Name"
-                        name="firstName"
-                        value={newEntry.instructor.firstName}
-                        onChange={(e) => handleChange("instructor", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        label="Last Name"
-                        name="lastName"
-                        value={newEntry.instructor.lastName}
-                        onChange={(e) => handleChange("instructor", e)}
-                        fullWidth
-                        required
-                      />
-                      <TextField
-                        label="Email"
-                        name="email"
-                        value={newEntry.instructor.email}
-                        onChange={(e) => handleChange("instructor", e)}
-                        fullWidth
-                        required
-                        type="email"
-                      />
-                    </Box>
-                  </DialogContent>
-                  <DialogActions>
-                    <Button
-                      onClick={() => handleCloseDialog("instructor")}
-                      color="secondary"
-                      startIcon={<CancelIcon />}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => handleSubmit("instructor")}
-                      color="primary"
-                      variant="contained"
-                      startIcon={<SaveIcon />}
-                    >
-                      Add Instructor
-                    </Button>
-                  </DialogActions>
-                </Dialog>
-              )}
+              {/* Add Dialogs Based on Type */}
+              {renderDialog(option.type)}
             </Grid>
           ))}
         </Grid>
@@ -602,4 +216,311 @@ export default function Dashboard() {
       </Snackbar>
     </Box>
   );
+
+  function renderDialog(type) {
+    switch (type) {
+      case "course":
+        return (
+          <Dialog
+            open={dialogState.course}
+            onClose={() => handleCloseDialog("course")}
+            fullWidth
+            maxWidth="sm"
+          >
+            <DialogTitle>Add New Course</DialogTitle>
+            <DialogContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  marginTop: 1,
+                }}
+              >
+                <TextField
+                  label="Course Name"
+                  name="courseName"
+                  value={newEntry.course.courseName}
+                  onChange={(e) => handleChange("course", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Course Code"
+                  name="courseCode"
+                  value={newEntry.course.courseCode}
+                  onChange={(e) => handleChange("course", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Description"
+                  name="description"
+                  value={newEntry.course.description}
+                  onChange={(e) => handleChange("course", e)}
+                  fullWidth
+                  required
+                  multiline
+                  rows={4}
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => handleCloseDialog("course")}
+                color="secondary"
+                startIcon={<CancelIcon />}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleSubmit("course")}
+                color="primary"
+                variant="contained"
+                startIcon={<SaveIcon />}
+              >
+                Add Course
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+        case "sections":
+      return (
+        <Dialog
+          open={dialogState.sections}
+          onClose={() => handleCloseDialog("sections")}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Assign Sections & Instructors</DialogTitle>
+          <DialogContent>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                marginTop: 1,
+              }}
+            >
+              {/* Course Selection */}
+              <TextField
+                select
+                label="Course"
+                name="courseID"
+                value={newEntry.sections.courseID}
+                onChange={(e) => handleChange("sections", e)}
+                fullWidth
+                required
+              >
+                {courses.map((course) => (
+                  <MenuItem key={course.courseID} value={course.courseID}>
+                    {course.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {/* Section Name Input */}
+              <TextField
+                label="Section Name"
+                name="sectionName"
+                value={newEntry.sections.sectionName}
+                onChange={(e) => handleChange("sections", e)}
+                fullWidth
+                required
+              />
+
+              {/* Instructor Selection */}
+              <TextField
+                select
+                label="Instructor"
+                name="instructorID"
+                value={newEntry.sections.instructorID}
+                onChange={(e) => handleChange("sections", e)}
+                fullWidth
+                required
+              >
+                {instructors.map((instructor) => (
+                  <MenuItem
+                    key={instructor.instructorID}
+                    value={instructor.instructorID}
+                  >
+                    {`${instructor.firstName} ${instructor.lastName}`}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => handleCloseDialog("sections")}
+              color="secondary"
+              startIcon={<CancelIcon />}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleSubmit("sections")}
+              color="primary"
+              variant="contained"
+              startIcon={<SaveIcon />}
+            >
+              Assign Section
+            </Button>
+          </DialogActions>
+        </Dialog>
+      );
+      case "student":
+        return (
+          <Dialog
+            open={dialogState.student}
+            onClose={() => handleCloseDialog("student")}
+            fullWidth
+            maxWidth="sm"
+          >
+            <DialogTitle>Add New Student</DialogTitle>
+            <DialogContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  marginTop: 1,
+                }}
+              >
+                <TextField
+                  label="First Name"
+                  name="firstName"
+                  value={newEntry.student.firstName}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Last Name"
+                  name="lastName"
+                  value={newEntry.student.lastName}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Email"
+                  name="email"
+                  value={newEntry.student.email}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                  type="email"
+                />
+                <TextField
+                  label="Bio"
+                  name="bio"
+                  value={newEntry.student.bio}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                  multiline
+                  rows={3}
+                />
+                <TextField
+                  label="Birthday"
+                  name="birthday"
+                  type="date"
+                  value={newEntry.student.birthday}
+                  onChange={(e) => handleChange("student", e)}
+                  fullWidth
+                  required
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => handleCloseDialog("student")}
+                color="secondary"
+                startIcon={<CancelIcon />}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleSubmit("student")}
+                color="primary"
+                variant="contained"
+                startIcon={<SaveIcon />}
+              >
+                Add Student
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+      case "instructor":
+        return (
+          <Dialog
+            open={dialogState.instructor}
+            onClose={() => handleCloseDialog("instructor")}
+            fullWidth
+            maxWidth="sm"
+          >
+            <DialogTitle>Add New Instructor</DialogTitle>
+            <DialogContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  marginTop: 1,
+                }}
+              >
+                <TextField
+                  label="First Name"
+                  name="firstName"
+                  value={newEntry.instructor.firstName}
+                  onChange={(e) => handleChange("instructor", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Last Name"
+                  name="lastName"
+                  value={newEntry.instructor.lastName}
+                  onChange={(e) => handleChange("instructor", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Email"
+                  name="email"
+                  value={newEntry.instructor.email}
+                  onChange={(e) => handleChange("instructor", e)}
+                  fullWidth
+                  required
+                  type="email"
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => handleCloseDialog("instructor")}
+                color="secondary"
+                startIcon={<CancelIcon />}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleSubmit("instructor")}
+                color="primary"
+                variant="contained"
+                startIcon={<SaveIcon />}
+              >
+                Add Instructor
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+      default:
+        return null;
+    }
+  }
 }
