@@ -7,7 +7,7 @@ dotenv.config();
 export async function GET(req, context) {
   try {
     // Extract parameter: instructorID
-    const { instructorID } = context.params;
+    const { instructorID } = await context.params;
 
     // Validate parameter
     if (!instructorID) {

@@ -7,7 +7,7 @@ dotenv.config();
 
 export async function GET(req, context) {
   try {
-    const { instructorID, code, section } = context.params;
+    const { instructorID, code, section } = await context.params;
 
     if (!instructorID || !code || !section) {
       return NextResponse.json(
@@ -90,7 +90,7 @@ export async function GET(req, context) {
 export async function POST(req, context) {
   let db;
   try {
-    const { instructorID, code, section } = context.params;
+    const { instructorID, code, section } = await context.params;
     const {
       action,
       lessons,
