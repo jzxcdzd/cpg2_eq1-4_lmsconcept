@@ -7,7 +7,7 @@ dotenv.config();
 
 export async function GET(req, context) {
   try {
-    const { instructorID, code, section } = await context.params;
+    const { instructorID, code, section } = context.params;
 
     if (!instructorID || !code || !section) {
       return NextResponse.json(
@@ -65,7 +65,8 @@ export async function GET(req, context) {
         Lesson AS lessonName,
         OrderIndex AS orderIndex,  
         Type AS type,
-        Content AS content
+        Content AS content,
+        Link AS link
       FROM 
         SectionLessonContent
       WHERE 
@@ -90,7 +91,7 @@ export async function GET(req, context) {
 export async function POST(req, context) {
   let db;
   try {
-    const { instructorID, code, section } = await context.params;
+    const { instructorID, code, section } = context.params;
     const {
       action,
       lessons,
@@ -99,6 +100,7 @@ export async function POST(req, context) {
       orderIndex,
       type,
       content,
+      link,
     } = await req.json();
 
     if (!instructorID || !code || !section) {
@@ -155,7 +157,7 @@ export async function POST(req, context) {
     if (action === "update" && Array.isArray(lessons)) {
       const updateSql = `
         UPDATE SectionLessonContent
-        SET Content = ?
+        SET Content = ?, Link = ?
         WHERE courseID = ?
           AND sectionID = ?
           AND Lesson = ?
@@ -163,17 +165,17 @@ export async function POST(req, context) {
       `;
 
       for (const lesson of lessons) {
-        const { content, lessonName, orderIndex } = lesson;
-        await db.query(updateSql, [content, courseID, sectionID, lessonName, orderIndex]);
+        const { content, lessonName, orderIndex, link } = lesson;
+        await db.query(updateSql, [content, link, courseID, sectionID, lessonName, orderIndex]);
       }
     }
 
     if (action === "add" && newLesson) {
-      const { lessonName, type, content } = newLesson;
+      const { lessonName, type, content, link } = newLesson;
 
       const insertLessonSql = `
-        INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content, Link)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
 
       // Determine the next OrderIndex for the new lesson
@@ -190,6 +192,7 @@ export async function POST(req, context) {
         nextOrderIndex,
         type,
         content,
+        type === "Presentation" ? link : null,
       ]);
     }
 
@@ -206,8 +209,8 @@ export async function POST(req, context) {
       const nextOrderIndex = maxOrder[0].maxOrder ? maxOrder[0].maxOrder + 1 : 1;
 
       const insertContentSql = `
-        INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO SectionLessonContent (courseID, sectionID, Lesson, OrderIndex, Type, Content, Link)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
 
       await db.query(insertContentSql, [
@@ -217,6 +220,7 @@ export async function POST(req, context) {
         nextOrderIndex,
         type,
         content,
+        type === "Presentation" ? link : null,
       ]);
     }
 
@@ -264,7 +268,8 @@ export async function POST(req, context) {
         Lesson AS lessonName,
         OrderIndex AS orderIndex,  
         Type AS type,
-        Content AS content
+        Content AS content,
+        Link AS link
       FROM 
         SectionLessonContent
       WHERE 
