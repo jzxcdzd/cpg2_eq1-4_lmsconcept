@@ -22,19 +22,20 @@ export async function POST(req, context) {
     // SQL query to fetch the specific entry from the Accounts table
     const sql = `
       SELECT 
-    Accounts.identifierID,
-    Accounts.password,
-    Accounts.userType,
-    Students.studentID
-  FROM 
-    Accounts
-  INNER JOIN 
-    Students
-  ON 
-    Accounts.identifierID = Students.email
-  WHERE 
-    Accounts.identifierID = ? 
-    AND Accounts.password = ?
+        Accounts.identifierID,
+        Accounts.password,
+        Accounts.userType,
+        Students.studentID,
+        Instructors.instructorID
+      FROM 
+        Accounts
+      LEFT JOIN 
+        Students ON Accounts.identifierID = Students.email
+      LEFT JOIN
+        Instructors ON Accounts.identifierID = Instructors.email
+      WHERE 
+        Accounts.identifierID = ? 
+        AND Accounts.password = ?
     `;
 
     // Query the database

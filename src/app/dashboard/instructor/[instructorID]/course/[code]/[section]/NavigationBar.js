@@ -19,7 +19,7 @@ const NavigationBar = () => {
   const dashboardLink = `/dashboard/instructor/${instructorID}/course/${code}/${section}`;
   const assignmentsLink = `/dashboard/instructor/${instructorID}/course/${code}/${section}/assignments`;
   const peopleLink = `/dashboard/instructor/${instructorID}/course/${code}/${section}/people`;
-
+  const logoutLink = "/"; // Redirect to home page
 
   // Function to determine if a link is active
   const isActive = (link) => pathname === link;
@@ -37,7 +37,7 @@ const NavigationBar = () => {
         </Typography>
 
         {/* Navigation Buttons */}
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <Button
             color="inherit"
             component={Link}
@@ -45,7 +45,6 @@ const NavigationBar = () => {
             sx={{
               textTransform: "none",
               fontSize: "1.2rem",
-              marginRight: 3,
               borderBottom: isActive(courseDashboardLink) ? "3px solid #fff" : "none",
               "&:hover": {
                 borderBottom: "3px solid #fff",
@@ -61,7 +60,6 @@ const NavigationBar = () => {
             sx={{
               textTransform: "none",
               fontSize: "1.2rem",
-              marginRight: 3,
               borderBottom: isActive(dashboardLink) ? "3px solid #fff" : "none",
               "&:hover": {
                 borderBottom: "3px solid #fff",
@@ -77,7 +75,6 @@ const NavigationBar = () => {
             sx={{
               textTransform: "none",
               fontSize: "1.2rem",
-              marginRight: 3,
               borderBottom: isActive(assignmentsLink) ? "3px solid #fff" : "none",
               "&:hover": {
                 borderBottom: "3px solid #fff",
@@ -100,6 +97,22 @@ const NavigationBar = () => {
             }}
           >
             People
+          </Button>
+          {/* Logout Button */}
+          <Button
+            color="inherit"
+            component={Link}
+            href={logoutLink}
+            sx={{
+              textTransform: "none",
+              fontSize: "1.2rem",
+              borderBottom: "none",
+              "&:hover": {
+                borderBottom: "none",
+              },
+            }}
+          >
+            Logout
           </Button>
         </Box>
       </Toolbar>

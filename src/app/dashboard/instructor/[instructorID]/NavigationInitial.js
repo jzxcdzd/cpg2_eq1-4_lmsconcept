@@ -15,6 +15,7 @@ const NavigationBar = () => {
 
   // Construct dynamic routes based on parameters
   const courseDashboardLink = `/dashboard/instructor/${instructorID}/`;
+  const logoutLink = "/"; // Redirect to home page
 
   return (
     <AppBar position="static" sx={{ backgroundColor: "#333", paddingY: 1 }}>
@@ -46,6 +47,21 @@ const NavigationBar = () => {
           >
             Course Dashboard
           </Button>
+
+          <Button
+            color="inherit"
+            component={Link}
+            href={logoutLink}
+            sx={{
+              textTransform: "none",
+              fontSize: "1.2rem",
+              marginRight: 3,
+              borderBottom: courseDashboardLink ? "3px solid #fff" : "none",
+              "&:hover": {
+                borderBottom: "3px solid #fff",
+              },
+            }}
+          >Logout</Button>
         </Box>
       </Toolbar>
     </AppBar>

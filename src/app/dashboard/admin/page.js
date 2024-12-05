@@ -27,6 +27,7 @@ import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from '@mui/icons-material/Edit';
 
 export default function Dashboard() {
   const [courses, setCourses] = useState([]);
@@ -273,52 +274,53 @@ export default function Dashboard() {
         </Grid>
       </Box>
 
-      {/* Edit Functions Section */}
-      <Box sx={{ marginBottom: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          Edit Functions
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="outlined"
-              color="primary"
-              sx={{
-                width: "100%",
-                height: "100%",
-                fontSize: "1.2rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 2,
-              }}
-              onClick={() => handleOpenDialog("editCourse")}
-            >
-              Edit Courses
-            </Button>
-            {renderDialog("editCourse")}
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              variant="outlined"
-              color="secondary"
-              sx={{
-                width: "100%",
-                height: "100%",
-                fontSize: "1.2rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 2,
-              }}
-              onClick={() => handleOpenDialog("editAssignments")}
-            >
-              Edit Student Assignments
-            </Button>
-            {renderDialog("editAssignments")}
-          </Grid>
-        </Grid>
-      </Box>
+<Box sx={{ marginBottom: 4 }}>
+  <Typography variant="h5" gutterBottom>
+    Edit Functions
+  </Typography>
+  <Grid container spacing={2}>
+    <Grid item xs={12} sm={6} md={3}>
+      <Button
+        variant="contained" // Changed from "outlined" to "contained"
+        color="primary"
+        sx={{
+          width: '100%',
+          height: '100%',
+          fontSize: '1.2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 2,
+        }}
+        onClick={() => handleOpenDialog('editCourse')}
+        startIcon={<EditIcon />} // Added startIcon
+      >
+        Edit Courses
+      </Button>
+      {renderDialog('editCourse')}
+    </Grid>
+    <Grid item xs={12} sm={6} md={3}>
+      <Button
+        variant="contained" // Changed from "outlined" to "contained"
+        color="primary"
+        sx={{
+          width: '100%',
+          height: '100%',
+          fontSize: '1.2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 2,
+        }}
+        onClick={() => handleOpenDialog('editAssignments')}
+        startIcon={<EditIcon />} // Added startIcon
+      >
+        Edit Student Assignments
+      </Button>
+      {renderDialog('editAssignments')}
+    </Grid>
+  </Grid>
+</Box>
 
       {/* Snackbar for Notifications */}
       <Snackbar
