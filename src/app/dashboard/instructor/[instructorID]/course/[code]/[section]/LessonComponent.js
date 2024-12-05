@@ -403,9 +403,77 @@ const LessonComponent = () => {
 
   if (!lessonData || lessonData.lessons.length === 0) {
     return (
-      <Typography variant="body1" sx={{ color: "#fff" }}>
-        No lessons found for the specified course.
-      </Typography>
+      <Box>
+        <Typography variant="body1" sx={{ color: "#fff" }}>
+          No lessons found for the specified course.
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={handleAddLessonClick}
+          sx={{ marginTop: 2 }}
+        >
+          Add Lesson
+        </Button>
+
+        {/* Add Lesson Dialog */}
+        <Dialog open={addDialogOpen} onClose={handleAddDialogClose}>
+          <DialogTitle>Add New Lesson</DialogTitle>
+          <DialogContent>
+            <TextField
+              label="Lesson Name"
+              name="lessonName"
+              value={newLesson.lessonName}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+            />
+            <TextField
+              select
+              label="Type"
+              name="type"
+              value={newLesson.type}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+            >
+              <MenuItem value="Presentation">Presentation</MenuItem>
+              <MenuItem value="Discussion">Discussion</MenuItem>
+              <MenuItem value="Assignment">Assignment</MenuItem>
+            </TextField>
+            <TextField
+              label="Content"
+              name="content"
+              value={newLesson.content}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+              multiline
+              rows={4}
+            />
+            {newLesson.type === "Presentation" && (
+              <TextField
+                label="Link"
+                name="link"
+                value={newLesson.link}
+                onChange={handleAddLessonChange}
+                fullWidth
+                margin="normal"
+                helperText="Enter the URL for the presentation link."
+              />
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleAddDialogClose} color="secondary" startIcon={<CancelIcon />}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddLessonSubmit} color="primary" startIcon={<SaveIcon />}>
+              Add Lesson
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     );
   }
 
