@@ -158,7 +158,7 @@ export default function Dashboard() {
       const data = await response.json();
   
       if (response.ok) {
-        showSnackbar(`${capitalize(type)} added successfully!`, "success");
+        showSnackbar(`Student was added successfully into the section!`, "success");
         handleCloseDialog(type);
         fetchInitialData(); // Refresh data
       } else {
