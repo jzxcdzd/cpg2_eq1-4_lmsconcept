@@ -1,4 +1,4 @@
-// /app/api/instructor/[instructorID]/course/[code]/[section]/students/route.js
+// /app/api/course/[code]/[section]/students/route.js
 
 import { createConnection } from "@/lib/db.js";
 import { NextResponse } from "next/server";
@@ -8,12 +8,11 @@ dotenv.config();
 
 export async function GET(req, context) {
   try {
-    const { instructorID, code, section } = context.params;
+    const { code, section } = context.params;
 
-    // Validate required parameters
-    if (!instructorID || !code || !section) {
+    if (!code || !section) {
       return NextResponse.json(
-        { error: "Missing required parameters: instructorID, code, or section" },
+        { error: "Missing required parameters: code or section" },
         { status: 400 }
       );
     }
@@ -45,36 +44,7 @@ export async function GET(req, context) {
       );
     }
 
-    const { courseID, sectionID, courseName } = courseSectionResults[0];
-
-    // **New: Retrieve instructorID from the Sections table**
-    const instructorFromSectionSql = `
-      SELECT 
-        instructorID
-      FROM 
-        Sections
-      WHERE 
-        sectionID = ?
-    `;
-
-    const [sectionInstructorResults] = await db.query(instructorFromSectionSql, [sectionID]);
-
-    if (!sectionInstructorResults || sectionInstructorResults.length === 0) {
-      return NextResponse.json(
-        { error: "No instructor assigned to this section." },
-        { status: 404 }
-      );
-    }
-
-    const sectionInstructorID = sectionInstructorResults[0].instructorID;
-
-    // **New: Compare retrieved instructorID with the provided instructorID**
-    if (sectionInstructorID !== instructorID) {
-      return NextResponse.json(
-        { error: "Instructor is not assigned to this course and section." },
-        { status: 403 }
-      );
-    }
+    const { courseID, sectionID } = courseSectionResults[0];
 
     // Fetch students enrolled in the specified course and section
     const studentsSql = `
@@ -95,29 +65,13 @@ export async function GET(req, context) {
 
     const [students] = await db.query(studentsSql, [courseID, sectionID]);
 
-    // Fetch instructor details
-    const instructorSql = `
-      SELECT 
-        instructorID,
-        firstName,
-        lastName,
-        email
-      FROM 
-        Instructors
-      WHERE 
-        instructorID = ?
-    `;
-
-    const [instructorDetails] = await db.query(instructorSql, [instructorID]);
-
     return NextResponse.json({
       courseDetails: {
         courseID: courseID,
-        courseName: courseName,
+        courseName: courseSectionResults[0].courseName,
         courseCode: code,
         section: section,
       },
-      instructor: instructorDetails[0] || null,
       students,
     });
   } catch (error) {

@@ -26,7 +26,8 @@ export async function GET(req, context) {
         Courses.courseID,
         Courses.name AS courseName,
         Sections.sectionID,
-        Sections.section AS sectionName
+        Sections.section AS sectionName,
+        Sections.instructorID
       FROM 
         Courses
       INNER JOIN 
@@ -45,31 +46,11 @@ export async function GET(req, context) {
       );
     }
 
-    const { courseID, sectionID, courseName } = courseSectionResults[0];
+    const { courseID, sectionID, courseName, instructorID: sectionInstructorID } = courseSectionResults[0];
 
-    // **New: Retrieve instructorID from the Sections table**
-    const instructorFromSectionSql = `
-      SELECT 
-        instructorID
-      FROM 
-        Sections
-      WHERE 
-        sectionID = ?
-    `;
-
-    const [sectionInstructorResults] = await db.query(instructorFromSectionSql, [sectionID]);
-
-    if (!sectionInstructorResults || sectionInstructorResults.length === 0) {
-      return NextResponse.json(
-        { error: "No instructor assigned to this section." },
-        { status: 404 }
-      );
-    }
-
-    const sectionInstructorID = sectionInstructorResults[0].instructorID;
-
-    // **New: Compare retrieved instructorID with the provided instructorID**
-    if (sectionInstructorID !== instructorID) {
+    // **Compare retrieved instructorID with the provided instructorID**
+    // Convert both IDs to strings to ensure type consistency
+    if (String(sectionInstructorID) !== String(instructorID)) {
       return NextResponse.json(
         { error: "Instructor is not assigned to this course and section." },
         { status: 403 }

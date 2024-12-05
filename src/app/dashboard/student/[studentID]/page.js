@@ -1,10 +1,11 @@
 "use client"
 import { useEffect, useState } from 'react';
 import Courses from './CourseCard';
+import NavigationInitial from './NavigationInitial';
 
 export default function dashboard() {
   return (
-    <div style={{ backgroundColor: '#000', color: '#1E90FF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <><NavigationInitial /><div style={{ backgroundColor: '#000', color: '#1E90FF', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 1, padding: '2rem' }}>
         <Courses />
       </div>
@@ -17,6 +18,6 @@ export default function dashboard() {
           <a href="#" style={{ margin: '0 1rem', color: '#1E90FF' }}>Instagram</a>
         </div>
       </footer>
-    </div>
+    </div></>
   );
 }
