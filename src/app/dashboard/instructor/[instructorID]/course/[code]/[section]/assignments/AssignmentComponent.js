@@ -5,8 +5,6 @@ import {
   Box,
   Typography,
   List,
-  ListItem,
-  Divider,
   CircularProgress,
   Button,
   Dialog,
@@ -17,21 +15,36 @@ import {
   IconButton,
   Snackbar,
   Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Divider,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 const AssignmentComponent = () => {
   const { instructorID, code, section } = useParams();
   const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [gradeInputs, setGradeInputs] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [noSubmissionAlertOpen, setNoSubmissionAlertOpen] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogType, setDialogType] = useState("add"); // 'add' or 'edit'
+  const [dialogType, setDialogType] = useState("add");
   const [newAssignment, setNewAssignment] = useState({
     assignmentID: "",
     name: "",
@@ -51,13 +64,10 @@ const AssignmentComponent = () => {
         }
 
         const data = await response.json();
-        console.log("Fetched assignments:", data); // Log the fetched data
+        console.log("Fetched assignments and submissions:", data);
 
-        if (data && Array.isArray(data.assignments)) {
-          setAssignments(data.assignments);
-        } else {
-          setAssignments([]);
-        }
+        setAssignments(data.assignments || []);
+        setSubmissions(data.submissions || []);
       } catch (err) {
         console.error("Failed to fetch assignments:", err);
         setError(err.message);
@@ -75,8 +85,9 @@ const AssignmentComponent = () => {
       setNewAssignment({
         assignmentID: assignment.assignmentID,
         name: assignment.name || assignment.assignmentName,
-        description: assignment.description || assignment.assignmentDescription,
-        dueDate: assignment.dueDate || assignment.assignmentDueDate,
+        description:
+          assignment.description || assignment.assignmentDescription,
+        dueDate: assignment.dueDate || "",
       });
     } else {
       setNewAssignment({
@@ -104,6 +115,11 @@ const AssignmentComponent = () => {
   };
 
   const handleAddAssignment = async () => {
+    if (!newAssignment.name || !newAssignment.description || !newAssignment.dueDate) {
+      alert("All fields are required.");
+      return;
+    }
+
     try {
       const response = await fetch(
         `/api/dashboard/instructor/${instructorID}/course/${code}/${section}/assignments`,
@@ -120,7 +136,7 @@ const AssignmentComponent = () => {
       );
 
       if (!response.ok) {
-        const errorData = await response.text(); // Capture the full response text
+        const errorData = await response.text();
         console.error("Server Error:", errorData);
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
@@ -131,7 +147,7 @@ const AssignmentComponent = () => {
         console.error(data.error);
         setError(data.error);
       } else {
-        setAssignments(data.assignments); // Update the assignments state with the latest data
+        setAssignments(data.assignments);
         handleCloseDialog();
         setAlertOpen(true);
       }
@@ -142,6 +158,11 @@ const AssignmentComponent = () => {
   };
 
   const handleEditAssignment = async () => {
+    if (!newAssignment.name || !newAssignment.description || !newAssignment.dueDate) {
+      alert("All fields are required.");
+      return;
+    }
+
     try {
       const response = await fetch(
         `/api/dashboard/instructor/${instructorID}/course/${code}/${section}/assignments`,
@@ -158,7 +179,7 @@ const AssignmentComponent = () => {
       );
 
       if (!response.ok) {
-        const errorData = await response.text(); // Capture the full response text
+        const errorData = await response.text();
         console.error("Server Error:", errorData);
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
@@ -169,7 +190,7 @@ const AssignmentComponent = () => {
         console.error(data.error);
         setError(data.error);
       } else {
-        setAssignments(data.assignments); // Update the assignments state with the latest data
+        setAssignments(data.assignments);
         handleCloseDialog();
         setAlertOpen(true);
       }
@@ -196,7 +217,7 @@ const AssignmentComponent = () => {
       );
 
       if (!response.ok) {
-        const errorData = await response.text(); // Capture the full response text
+        const errorData = await response.text();
         console.error("Server Error:", errorData);
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
@@ -207,11 +228,69 @@ const AssignmentComponent = () => {
         console.error(data.error);
         setError(data.error);
       } else {
-        setAssignments(data.assignments); // Update the assignments state with the latest data
+        setAssignments(data.assignments);
         setAlertOpen(true);
       }
     } catch (err) {
       console.error("Failed to delete assignment:", err);
+      setError(err.message);
+    }
+  };
+
+  const handleGradeChange = (key, value) => {
+    setGradeInputs({ ...gradeInputs, [key]: value });
+  };
+
+  const handleUpdateGrade = async (submission) => {
+    const key = `${submission.AssignmentID}-${submission.StudentID}`;
+    const gradeValue = gradeInputs[key];
+    if (gradeValue === undefined || gradeValue === null) {
+      alert("No grade value provided");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/dashboard/instructor/${instructorID}/course/${code}/${section}/assignments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "updateGrade",
+            data: {
+              assignmentID: submission.AssignmentID,
+              studentID: submission.StudentID,
+              grade: gradeValue,
+            },
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        console.error(data.error || "Server Error");
+        setError(data.error || "Failed to update grade.");
+      } else if (data.noSubmission) {
+        setNoSubmissionAlertOpen(true);
+      } else {
+        setSubmissions((prevSubmissions) =>
+          prevSubmissions.map((sub) => {
+            if (
+              sub.AssignmentID === submission.AssignmentID &&
+              sub.StudentID === submission.StudentID
+            ) {
+              return { ...sub, grade: gradeValue };
+            }
+            return sub;
+          })
+        );
+        setAlertOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to update grade:", err);
       setError(err.message);
     }
   };
@@ -250,7 +329,12 @@ const AssignmentComponent = () => {
       }}
     >
       {/* Add Assignment Button */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        mb={2}
+      >
         <Button
           variant="contained"
           color="primary"
@@ -269,50 +353,148 @@ const AssignmentComponent = () => {
       ) : (
         <List sx={{ padding: 0 }}>
           {assignments.map((assignment, index) => (
-            <ListItem key={index} sx={{ padding: 0 }}>
-              <Box
-                sx={{
-                  border: "1px solid #4caf50",
-                  borderRadius: 2,
-                  padding: 2,
-                  marginBottom: 2,
-                  backgroundColor: "#1e1e1e",
-                  color: "#fff",
-                  width: "100%",
-                }}
+            <Accordion key={index}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls={`panel${index}-content`}
+                id={`panel${index}-header`}
               >
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Typography variant="h6" sx={{ marginRight: 1 }}>
-                    {assignment.name || assignment.assignmentName}
-                  </Typography>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <IconButton
-                      onClick={() => handleOpenDialog("edit", assignment)}
-                      sx={{ color: "#fff" }}
-                      title="Edit Assignment"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      onClick={() => handleDeleteAssignment(assignment)}
-                      sx={{ color: "#f44336" }}
-                      title="Delete Assignment"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
+                <Typography variant="h6" sx={{ marginRight: 1 }}>
+                  {assignment.name || assignment.assignmentName}
+                </Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <IconButton
+                    onClick={() => handleOpenDialog("edit", assignment)}
+                    sx={{ color: "black" }}
+                    title="Edit Assignment"
+                  >
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    onClick={() => handleDeleteAssignment(assignment)}
+                    sx={{ color: "#f44336" }}
+                    title="Delete Assignment"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                 </Box>
+              </AccordionSummary>
+              <AccordionDetails>
                 <Typography variant="body1" color="inherit">
                   Due Date:{" "}
                   {new Date(
                     assignment.dueDate || assignment.assignmentDueDate
-                  ).toLocaleString()}
+                  ).toLocaleString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "numeric",
+                    hour12: true,
+                  })}
                 </Typography>
                 <Typography variant="body1">
-                  {assignment.description || assignment.assignmentDescription}
+                  {assignment.description ||
+                    assignment.assignmentDescription}
                 </Typography>
-              </Box>
-            </ListItem>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="h6">Submissions:</Typography>
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Student Name</TableCell>
+                        <TableCell>Submission Date</TableCell>
+                        <TableCell>Submission Link</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Grade</TableCell>
+                        <TableCell>Action</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {submissions
+                        .filter(
+                          (submission) =>
+                            submission.AssignmentID ===
+                            assignment.assignmentID
+                        )
+                        .map((submission, subIndex) => {
+                          const key = `${submission.AssignmentID}-${submission.StudentID}`;
+                          const isLate =
+                            submission.submissionDate &&
+                            new Date(submission.submissionDate) >
+                              new Date(assignment.dueDate);
+                          const status = submission.submissionDate
+                            ? isLate
+                              ? "Late"
+                              : "On time"
+                            : "Missing";
+                          return (
+                            <TableRow key={subIndex}>
+                              <TableCell>{submission.StudentName}</TableCell>
+                              <TableCell>
+                                {submission.submissionDate
+                                  ? new Date(
+                                      submission.submissionDate
+                                    ).toLocaleString("en-US", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                      hour: "numeric",
+                                      minute: "numeric",
+                                      hour12: true,
+                                    })
+                                  : ""}
+                              </TableCell>
+                              <TableCell>
+                                {submission.submissionLink ? (
+                                  <a
+                                    href={submission.submissionLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {submission.submissionLink}
+                                  </a>
+                                ) : (
+                                  ""
+                                )}
+                              </TableCell>
+                              <TableCell>{status}</TableCell>
+                              <TableCell>
+                                <TextField
+                                  type="number"
+                                  InputProps={{ inputProps: { min: 0 } }}
+                                  value={
+                                    gradeInputs[key] ??
+                                    submission.grade ??
+                                    ""
+                                  }
+                                  onChange={(e) =>
+                                    handleGradeChange(key, e.target.value)
+                                  }
+                                  placeholder="Enter grade"
+                                  variant="standard"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="contained"
+                                  color="primary"
+                                  onClick={() =>
+                                    handleUpdateGrade(submission)
+                                  }
+                                >
+                                  Update
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </AccordionDetails>
+            </Accordion>
           ))}
         </List>
       )}
@@ -358,15 +540,27 @@ const AssignmentComponent = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog} color="secondary" startIcon={<CancelIcon />}>
+          <Button
+            onClick={handleCloseDialog}
+            color="secondary"
+            startIcon={<CancelIcon />}
+          >
             Cancel
           </Button>
           {dialogType === "add" ? (
-            <Button onClick={handleAddAssignment} color="primary" startIcon={<SaveIcon />}>
+            <Button
+              onClick={handleAddAssignment}
+              color="primary"
+              startIcon={<SaveIcon />}
+            >
               Add
             </Button>
           ) : (
-            <Button onClick={handleEditAssignment} color="primary" startIcon={<SaveIcon />}>
+            <Button
+              onClick={handleEditAssignment}
+              color="primary"
+              startIcon={<SaveIcon />}
+            >
               Save
             </Button>
           )}
@@ -385,6 +579,21 @@ const AssignmentComponent = () => {
           sx={{ width: "100%" }}
         >
           Action completed successfully!
+        </Alert>
+      </Snackbar>
+
+      {/* No Submission Alert */}
+      <Snackbar
+        open={noSubmissionAlertOpen}
+        autoHideDuration={6000}
+        onClose={() => setNoSubmissionAlertOpen(false)}
+      >
+        <Alert
+          onClose={() => setNoSubmissionAlertOpen(false)}
+          severity="warning"
+          sx={{ width: "100%" }}
+        >
+          The student has not submitted yet. Cannot update grade.
         </Alert>
       </Snackbar>
     </Box>

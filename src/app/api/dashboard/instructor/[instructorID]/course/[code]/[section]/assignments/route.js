@@ -5,20 +5,20 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export async function GET(req, context) {
-  const { section } = await context.params;
-  console.log("Section parameter (name):", section);
+  const { code, section } = context.params;
 
   try {
     const db = await createConnection("project");
 
-    // Fetch sectionID based on the section name
+    // Fetch sectionID based on the section name and course code
     const [sections] = await db.query(
       `
       SELECT sectionID
       FROM Sections
       WHERE section = ?
+      AND courseID = (SELECT courseID FROM Courses WHERE code = ?)
       `,
-      [section]
+      [section, code]
     );
 
     if (sections.length === 0) {
@@ -29,7 +29,6 @@ export async function GET(req, context) {
     }
 
     const sectionID = sections[0].sectionID;
-    console.log("Section ID:", sectionID);
 
     // Fetch Assignments for the current section
     const [assignments] = await db.query(
@@ -41,20 +40,42 @@ export async function GET(req, context) {
       `,
       [sectionID]
     );
-    console.log("Assignments fetched from database:", assignments);
 
-    return NextResponse.json({ assignments }, { status: 200 });
+    // Fetch Submissions for each assignment and student, including those without submissions
+    const [submissions] = await db.query(
+      `
+      SELECT 
+        a.assignmentID AS AssignmentID,
+        a.name AS AssignmentName,
+        s.studentID AS StudentID,
+        CONCAT(s.firstName, ' ', s.lastName) AS StudentName,
+        sub.submissionDate,
+        sub.submissionLink,
+        sub.grade
+      FROM Assignments a
+      INNER JOIN SectionAssignments sa ON a.assignmentID = sa.assignmentID
+      INNER JOIN Enrollments e ON sa.sectionID = e.sectionID
+      INNER JOIN Students s ON e.studentID = s.studentID
+      LEFT JOIN Submissions sub ON sub.assignmentID = a.assignmentID AND sub.studentID = s.studentID
+      WHERE sa.sectionID = ?
+      `,
+      [sectionID]
+    );
+
+    console.log("Submissions fetched from database:", submissions);
+
+    return NextResponse.json({ assignments, submissions }, { status: 200 });
   } catch (error) {
-    console.error("Error fetching assignments:", error);
+    console.error("Error fetching assignments and submissions:", error);
     return NextResponse.json(
-      { error: "Failed to fetch assignments." },
+      { error: "Failed to fetch assignments and submissions." },
       { status: 500 }
     );
   }
 }
 
 export async function POST(req, context) {
-  const { section } = await context.params;
+  const { code, section } = context.params;
 
   try {
     const db = await createConnection("project");
@@ -67,14 +88,15 @@ export async function POST(req, context) {
       );
     }
 
-    // Fetch sectionID based on the section name
+    // Fetch sectionID based on the section name and course code
     const [sections] = await db.query(
       `
       SELECT sectionID
       FROM Sections
       WHERE section = ?
+      AND courseID = (SELECT courseID FROM Courses WHERE code = ?)
       `,
-      [section]
+      [section, code]
     );
 
     if (sections.length === 0) {
@@ -93,8 +115,13 @@ export async function POST(req, context) {
         return await deleteAssignment(db, data, sectionID);
       case "editAssignment":
         return await editAssignment(db, data, sectionID);
+      case "updateGrade":
+        return await updateGrade(db, data);
       default:
-        return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid action." },
+          { status: 400 }
+        );
     }
   } catch (error) {
     console.error("Error processing POST request:", error);
@@ -263,6 +290,70 @@ async function editAssignment(db, data, sectionID) {
     console.error("Error updating assignment:", error);
     return NextResponse.json(
       { error: "Failed to update assignment." },
+      { status: 500 }
+    );
+  }
+}
+
+async function updateGrade(db, data) {
+  const { assignmentID, studentID, grade } = data;
+
+  // Validation
+  if (
+    !assignmentID ||
+    !studentID ||
+    grade === undefined ||
+    grade === null
+  ) {
+    return NextResponse.json(
+      {
+        error: "Assignment ID, Student ID, and Grade are required.",
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Check if submission exists
+    const [submissions] = await db.query(
+      `
+      SELECT submissionID
+      FROM Submissions
+      WHERE assignmentID = ? AND studentID = ?
+      `,
+      [assignmentID, studentID]
+    );
+
+    if (submissions.length === 0) {
+      // Instead of returning an error, return a message indicating no submission
+      return NextResponse.json(
+        {
+          message:
+            "Student has not submitted yet. Cannot update grade.",
+          noSubmission: true, // Custom flag to indicate no submission
+        },
+        { status: 200 }
+      );
+    }
+
+    const submissionID = submissions[0].submissionID;
+
+    // Update the grade
+    const updateGradeSql = `
+      UPDATE Submissions
+      SET grade = ?
+      WHERE submissionID = ?
+    `;
+    await db.query(updateGradeSql, [grade, submissionID]);
+
+    return NextResponse.json(
+      { message: "Grade updated successfully." },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error updating grade:", error);
+    return NextResponse.json(
+      { error: "Failed to update grade." },
       { status: 500 }
     );
   }
