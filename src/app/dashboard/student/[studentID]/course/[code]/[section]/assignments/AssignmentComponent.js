@@ -248,13 +248,13 @@ const AssignmentComponent = () => {
                     ? "Submitted"
                     : "Submit"}
                 </Button>
-              </Box>
+              </Box> 
             </ListItem>
           );
         })}
       </List>
 
-      {/* Snackbar for Notifications */}
+      {/* Snackbar for Notification */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
