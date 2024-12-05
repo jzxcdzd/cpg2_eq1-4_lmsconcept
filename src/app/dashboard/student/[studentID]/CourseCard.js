@@ -58,19 +58,17 @@ const CourseCard = ({ course, onDrop }) => {
 
   const dropCourse = async () => {
     try {
-      const response = await fetch(`/api/dashboard/student/${studentID}/`, {
+      const response = await fetch(`/api/dashboard/student/${studentID}/drop`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          studentID: studentID,
           sectionID: course.sectionID,
         }),
       });
 
       if (response.ok) {
-        alert("Course dropped successfully.");
         setSnackbarMessage('Course dropped successfully.');
         setSnackbarSeverity('success');
         setOpenSnackbar(true);
@@ -93,6 +91,23 @@ const CourseCard = ({ course, onDrop }) => {
 
   const hoverColor = lightenColor(bgColor, 20);
 
+  const getSoonestAssignment = () => {
+    if (course.assignments && course.assignments.length > 0) {
+      return course.assignments.reduce((soonest, current) => {
+        return new Date(current.dueDate) < new Date(soonest.dueDate) ? current : soonest;
+      }, course.assignments[0]);
+    }
+    return null;
+  };
+
+  const soonestAssignment = getSoonestAssignment();
+
+  // Debugging: Log assignments and the soonest assignment
+  useEffect(() => {
+    console.log("Assignments for course:", course.courseName, course.assignments);
+    console.log("Soonest Assignment:", soonestAssignment);
+  }, [course.assignments, soonestAssignment]);
+
   return (
     <>
       <Card
@@ -101,7 +116,7 @@ const CourseCard = ({ course, onDrop }) => {
           margin: "1rem",
           display: 'flex',
           flexDirection: 'column',
-          height: 250,
+          height: soonestAssignment ? 300 : 250, // Fixed height based on assignment presence
           position: 'relative',
         }}
       >
@@ -143,49 +158,69 @@ const CourseCard = ({ course, onDrop }) => {
           <MenuItem onClick={dropCourse}>Drop Course</MenuItem>
         </Menu>
         {/* Colored Upper Half */}
-        <Box sx={{ height: '50%', backgroundColor: bgColor }} />
+        <Box sx={{ height: '35%', backgroundColor: bgColor }} />
 
         {/* Card Content Lower Half */}
         <CardContent
           sx={{
-            height: '50%',
+            height: '65%',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          {/* Course Title */}
-          <Typography
-            variant="h6"
-            component="div"
-            gutterBottom
-            sx={{
-              color: bgColor,
-              fontSize: '1.2rem',
-            }}
-          >
-            <Link
-              href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}`}
-              color="inherit"
-              underline="hover"
+          <Box>
+            {/* Course Title */}
+            <Typography
+              variant="h6"
+              component="div"
+              gutterBottom
+              sx={{
+                color: bgColor,
+                fontSize: '1.2rem',
+              }}
             >
-              {course.courseName}
-            </Link>
-          </Typography>
-    
-          <Typography
-            variant="subtitle2" sx={{
-              fontSize: '1rem',
-            }}
-          >
-            {course.courseCode} - {course.sectionName}
-          </Typography>
-  
-          <Box mt={1}>
-            <Typography variant="subtitle2">
-              Instructor: {course.instructorFirstName} {course.instructorLastName}
+              <Link
+                href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}`}
+                color="inherit"
+                underline="hover"
+              >
+                {course.courseName}
+              </Link>
             </Typography>
+      
+            <Typography
+              variant="subtitle2" sx={{
+                fontSize: '1rem',
+              }}
+            >
+              {course.courseCode} - {course.sectionName}
+            </Typography>
+    
+            <Box mt={1}>
+              <Typography variant="subtitle2">
+                Instructor: {course.instructorFirstName} {course.instructorLastName}
+              </Typography>
+            </Box>
           </Box>
+          {/* Soonest Assignment */}
+          {soonestAssignment ? (
+            <Box mt={2}>
+              <Typography variant="subtitle1" color="textSecondary">
+                Assignment:
+              </Typography>
+              <Typography variant="body2">
+              <Link href={`/dashboard/student/${studentID}/course/${course.courseCode}/${course.sectionName}/assignments`}>
+  {soonestAssignment.name} - Due: {new Date(soonestAssignment.dueDate).toLocaleDateString()} </Link>
+              </Typography>
+            </Box>
+          ) : (
+            <Box mt={2}>
+              <Typography variant="subtitle1" color="textSecondary">
+                No Assignments
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
       <Snackbar
