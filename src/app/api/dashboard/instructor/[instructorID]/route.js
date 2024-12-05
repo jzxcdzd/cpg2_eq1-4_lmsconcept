@@ -28,23 +28,17 @@ export async function GET(req, context) {
         Sections.section AS sectionName,
         Instructors.firstName AS instructorFirstName,
         Instructors.lastName AS instructorLastName,
-        Instructors.email AS instructorEmail,
-        COALESCE(Assignments.name, 'None') AS assignmentName,
-        COALESCE(Assignments.dueDate, 'None') AS assignmentDueDate
+        Instructors.email AS instructorEmail
       FROM 
         Courses
       INNER JOIN 
         Sections ON Courses.courseID = Sections.courseID
       INNER JOIN 
         Instructors ON Sections.instructorID = Instructors.instructorID
-      LEFT JOIN 
-        SectionAssignments ON Sections.sectionID = SectionAssignments.sectionID
-      LEFT JOIN 
-        Assignments ON SectionAssignments.assignmentID = Assignments.assignmentID
       WHERE 
         Instructors.instructorID = ?
       ORDER BY 
-        Courses.name, Assignments.dueDate;
+        Courses.name
     `;
 
     // Query the database
