@@ -440,7 +440,7 @@ const LessonComponent = () => {
             >
               <MenuItem value="Presentation">Presentation</MenuItem>
               <MenuItem value="Discussion">Discussion</MenuItem>
-              <MenuItem value="Assignment">Assignment</MenuItem>
+              
             </TextField>
             <TextField
               label="Content"
@@ -629,7 +629,7 @@ const LessonComponent = () => {
                         >
                           <MenuItem value="Presentation">Presentation</MenuItem>
                           <MenuItem value="Discussion">Discussion</MenuItem>
-                          <MenuItem value="Assignment">Assignment</MenuItem>
+                         
                         </TextField>
                         <TextField
                           label="Content"
@@ -762,7 +762,7 @@ const LessonComponent = () => {
           >
             <MenuItem value="Presentation">Presentation</MenuItem>
             <MenuItem value="Discussion">Discussion</MenuItem>
-            <MenuItem value="Assignment">Assignment</MenuItem>
+            
           </TextField>
           <TextField
             label="Content"
@@ -814,7 +814,7 @@ const LessonComponent = () => {
           >
             <MenuItem value="Presentation">Presentation</MenuItem>
             <MenuItem value="Discussion">Discussion</MenuItem>
-            <MenuItem value="Assignment">Assignment</MenuItem>
+            
           </TextField>
           <TextField
             label="Content"
