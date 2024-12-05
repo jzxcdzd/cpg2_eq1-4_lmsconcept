@@ -1,4 +1,4 @@
-// /app/api/dashboard/student/[studentID]/course/[code]/[section]/route.js
+// /app/api/dashboard/student/[studentID]/course/[code]/[section]/lessons/route.js
 import { createConnection } from "@/lib/db.js";
 import { NextResponse } from "next/server";
 import dotenv from "dotenv";
@@ -101,7 +101,7 @@ export async function GET(req, context) {
       lessons,
     });
   } catch (error) {
-    console.error("Error occurred:", error.message);
+    console.error("GET Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

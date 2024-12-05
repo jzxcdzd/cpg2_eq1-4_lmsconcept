@@ -68,7 +68,13 @@ export async function POST(req, context) {
       case "addInstructor":
         return await addInstructor(db, data);
       case "assignStudent":
-        return await assignStudent(db, data); // Add this case
+        return await assignStudent(db, data);
+      case "editCourse":
+        return await editCourse(db, data);
+      case "editStudent":
+        return await editStudent(db, data);
+      case "editSection":
+        return await editSection(db, data);
       default:
         return NextResponse.json(
           { error: "Invalid action." },
@@ -97,6 +103,18 @@ async function addCourse(db, data) {
   }
 
   try {
+    // Check if courseCode already exists
+    const [existingCourse] = await db.query(
+      "SELECT * FROM Courses WHERE code = ?",
+      [courseCode]
+    );
+    if (existingCourse.length > 0) {
+      return NextResponse.json(
+        { error: "Course code already exists." },
+        { status: 400 }
+      );
+    }
+
     const insertSql = `
       INSERT INTO Courses (name, code, description)
       VALUES (?, ?, ?)
@@ -157,6 +175,34 @@ async function assignSections(db, data) {
       );
     }
 
+    // Check if section already exists
+    const [existingSection] = await db.query(
+      "SELECT * FROM Sections WHERE courseID = ? AND section = ?",
+      [courseID, section]
+    );
+
+    if (existingSection.length > 0) {
+      if (existingSection[0].instructorID) {
+        return NextResponse.json(
+          { error: "This section already has an instructor assigned." },
+          { status: 400 }
+        );
+      } else {
+        // Assign the instructor to the existing section
+        const updateSql = `
+          UPDATE Sections
+          SET instructorID = ?
+          WHERE courseID = ? AND section = ?
+        `;
+        await db.query(updateSql, [instructorID, courseID, section]);
+        return NextResponse.json(
+          { message: "Instructor assigned to existing section successfully." },
+          { status: 200 }
+        );
+      }
+    }
+
+    // Otherwise, insert new section
     const insertSql = `
       INSERT INTO Sections (section, courseID, instructorID)
       VALUES (?, ?, ?)
@@ -209,7 +255,7 @@ async function assignStudent(db, data) {
   } catch (error) {
     console.error("Error assigning student:", error);
     return NextResponse.json(
-      { error: "Failed to assign student to course and section." },
+      { error: "Failed to assign student to course and section - already assigned to the same class or on a different section." },
       { status: 500 }
     );
   }
@@ -257,7 +303,7 @@ async function addStudent(db, data) {
     await db.rollback();
     console.error("Error adding student:", error);
     return NextResponse.json(
-      { error: "Failed to add student." },
+      { error: "Failed to add student. The student already exists." },
       { status: 500 }
     );
   }
@@ -276,6 +322,30 @@ async function addInstructor(db, data) {
   }
 
   try {
+    // Check if username already exists in Accounts
+    const [existingAccount] = await db.query(
+      "SELECT * FROM Accounts WHERE username = ?",
+      [username]
+    );
+    if (existingAccount.length > 0) {
+      return NextResponse.json(
+        { error: "Username already exists." },
+        { status: 400 }
+      );
+    }
+
+    // Check if instructor with the same email already exists
+    const [existingInstructor] = await db.query(
+      "SELECT * FROM Instructors WHERE email = ?",
+      [email]
+    );
+    if (existingInstructor.length > 0) {
+      return NextResponse.json(
+        { error: "Instructor with this email already exists." },
+        { status: 400 }
+      );
+    }
+
     // Start transaction
     await db.beginTransaction();
 
@@ -306,6 +376,122 @@ async function addInstructor(db, data) {
     console.error("Error adding instructor:", error);
     return NextResponse.json(
       { error: "Failed to add instructor." },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler to edit a course
+async function editCourse(db, data) {
+  const { courseID, courseName, courseCode, description } = data;
+
+  // Validation
+  if (!courseID || !courseName || !courseCode || !description) {
+    return NextResponse.json(
+      { error: "All fields are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const updateSql = `
+      UPDATE Courses
+      SET name = ?, code = ?, description = ?
+      WHERE courseID = ?
+    `;
+    await db.query(updateSql, [courseName, courseCode, description, courseID]);
+
+    return NextResponse.json(
+      { message: "Course updated successfully." },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error updating course:", error);
+    return NextResponse.json(
+      { error: "Failed to update course." },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler to edit a student
+async function editStudent(db, data) {
+  const { studentID, firstName, lastName, email, bio, username, password } = data;
+
+  // Validation
+  if (!studentID || !firstName || !lastName || !email || !username || !password) {
+    return NextResponse.json(
+      { error: "All fields are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Start transaction
+    await db.beginTransaction();
+
+    // Update Accounts table
+    const accountSql = `
+      UPDATE Accounts
+      SET username = ?, password = ?
+      WHERE identifierID = ? AND usertype = 3
+    `;
+    await db.query(accountSql, [username, password, email]);
+
+    // Update Students table
+    const studentSql = `
+      UPDATE Students
+      SET firstName = ?, lastName = ?, email = ?, bio = ?
+      WHERE studentID = ?
+    `;
+    await db.query(studentSql, [firstName, lastName, email, bio, studentID]);
+
+    // Commit transaction
+    await db.commit();
+
+    return NextResponse.json(
+      { message: "Student updated successfully." },
+      { status: 200 }
+    );
+  } catch (error) {
+    // Rollback transaction on error
+    await db.rollback();
+    console.error("Error updating student:", error);
+    return NextResponse.json(
+      { error: "Failed to update student." },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler to edit a section
+async function editSection(db, data) {
+  const { sectionID, courseID, section, instructorID } = data;
+
+  // Validation
+  if (!sectionID || !courseID || !section || !instructorID) {
+    return NextResponse.json(
+      { error: "All fields are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const updateSql = `
+      UPDATE Sections
+      SET courseID = ?, section = ?, instructorID = ?
+      WHERE sectionID = ?
+    `;
+    await db.query(updateSql, [courseID, section, instructorID, sectionID]);
+
+    return NextResponse.json(
+      { message: "Section updated successfully." },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error updating section:", error);
+    return NextResponse.json(
+      { error: "Failed to update section." },
       { status: 500 }
     );
   }

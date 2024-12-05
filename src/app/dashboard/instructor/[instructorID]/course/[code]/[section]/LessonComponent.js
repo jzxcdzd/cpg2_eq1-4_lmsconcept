@@ -23,7 +23,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete"; // Imported DeleteIcon
+import DeleteIcon from "@mui/icons-material/Delete";
 
 const LessonComponent = () => {
   const { instructorID, code, section } = useParams();
@@ -38,6 +38,7 @@ const LessonComponent = () => {
     lessonName: "",
     type: "",
     content: "",
+    link: "",
   });
   const [addContentDialogOpen, setAddContentDialogOpen] = useState(false);
   const [currentLesson, setCurrentLesson] = useState({
@@ -157,10 +158,10 @@ const LessonComponent = () => {
   };
 
   const handleAddLessonSubmit = async () => {
-    const { lessonName, type, content } = newLesson;
+    const { lessonName, type, content, link } = newLesson;
 
     if (!lessonName || !type || !content) {
-      alert("All fields are required to add a new lesson.");
+      alert("Lesson Name, Type, and Content are required to add a new lesson.");
       return;
     }
 
@@ -178,6 +179,7 @@ const LessonComponent = () => {
               lessonName,
               type,
               content,
+              link: type === "Presentation" ? link : null,
             },
           }),
         }
@@ -196,6 +198,7 @@ const LessonComponent = () => {
           lessonName: "",
           type: "",
           content: "",
+          link: "",
         });
         setAlertOpen(true);
       }
@@ -210,6 +213,7 @@ const LessonComponent = () => {
       lessonName: "",
       type: "",
       content: "",
+      link: "",
     });
   };
 
@@ -232,12 +236,7 @@ const LessonComponent = () => {
     const { lessonName, orderIndex } = currentLesson;
 
     if (!type || !content) {
-      alert("Both Type and Content are required to add new content.");
-      return;
-    }
-
-    if (link && !isValidURL(link)) {
-      alert("Please enter a valid URL.");
+      alert("Type and Content are required to add new content.");
       return;
     }
 
@@ -255,7 +254,7 @@ const LessonComponent = () => {
             orderIndex: parseInt(orderIndex, 10),
             type,
             content,
-            link,
+            link: type === "Presentation" ? link : null,
           }),
         }
       );
@@ -386,14 +385,6 @@ const LessonComponent = () => {
     setLessonToDelete(null);
   };
 
-  // Utility function to validate URLs
-  const isValidURL = (string) => {
-    const res = string.match(
-      /(http|https):\/\/(\w+:?\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/
-    );
-    return res !== null;
-  };
-
   if (loading) {
     return (
       <Typography variant="body1" sx={{ color: "#fff" }}>
@@ -412,9 +403,77 @@ const LessonComponent = () => {
 
   if (!lessonData || lessonData.lessons.length === 0) {
     return (
-      <Typography variant="body1" sx={{ color: "#fff" }}>
-        No lessons found for the specified course.
-      </Typography>
+      <Box>
+        <Typography variant="body1" sx={{ color: "#fff" }}>
+          No lessons found for the specified course.
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={handleAddLessonClick}
+          sx={{ marginTop: 2 }}
+        >
+          Add Lesson
+        </Button>
+
+        {/* Add Lesson Dialog */}
+        <Dialog open={addDialogOpen} onClose={handleAddDialogClose}>
+          <DialogTitle>Add New Lesson</DialogTitle>
+          <DialogContent>
+            <TextField
+              label="Lesson Name"
+              name="lessonName"
+              value={newLesson.lessonName}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+            />
+            <TextField
+              select
+              label="Type"
+              name="type"
+              value={newLesson.type}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+            >
+              <MenuItem value="Presentation">Presentation</MenuItem>
+              <MenuItem value="Discussion">Discussion</MenuItem>
+              <MenuItem value="Assignment">Assignment</MenuItem>
+            </TextField>
+            <TextField
+              label="Content"
+              name="content"
+              value={newLesson.content}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+              multiline
+              rows={4}
+            />
+            {newLesson.type === "Presentation" && (
+              <TextField
+                label="Link"
+                name="link"
+                value={newLesson.link}
+                onChange={handleAddLessonChange}
+                fullWidth
+                margin="normal"
+                helperText="Enter the URL for the presentation link."
+              />
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleAddDialogClose} color="secondary" startIcon={<CancelIcon />}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddLessonSubmit} color="primary" startIcon={<SaveIcon />}>
+              Add Lesson
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     );
   }
 
@@ -604,6 +663,39 @@ const LessonComponent = () => {
                             },
                           }}
                         />
+                        {editedLessons[lessonName][idx].type === "Presentation" && (
+                          <TextField
+                            label="Link"
+                            name="link"
+                            value={editedLessons[lessonName][idx].link || ""}
+                            onChange={(e) =>
+                              handleChange(lessonName, idx, "link", e.target.value)
+                            }
+                            fullWidth
+                            margin="normal"
+                            helperText="Enter the URL for the presentation link."
+                            sx={{
+                              backgroundColor: "#000",
+                              "& .MuiInputBase-input": {
+                                color: "#fff",
+                              },
+                              "& .MuiInputLabel-root": {
+                                color: "#fff",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                "& fieldset": {
+                                  borderColor: "#fff",
+                                },
+                                "&:hover fieldset": {
+                                  borderColor: "#fff",
+                                },
+                                "&.Mui-focused fieldset": {
+                                  borderColor: "#fff",
+                                },
+                              },
+                            }}
+                          />
+                        )}
                         <IconButton
                           onClick={() =>
                             handleDeleteContentClick(
@@ -623,7 +715,7 @@ const LessonComponent = () => {
                     </>
                   ) : (
                     <Box display="flex" alignItems="center" justifyContent="space-between">
-                      {lesson.link && isValidURL(lesson.link) ? (
+                      {lesson.type === "Presentation" && lesson.link ? (
                         <Typography variant="body2">
                           <a
                             href={lesson.link}
@@ -682,6 +774,17 @@ const LessonComponent = () => {
             multiline
             rows={4}
           />
+          {newLesson.type === "Presentation" && (
+            <TextField
+              label="Link"
+              name="link"
+              value={newLesson.link}
+              onChange={handleAddLessonChange}
+              fullWidth
+              margin="normal"
+              helperText="Enter the URL for the presentation link."
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleAddDialogClose} color="secondary" startIcon={<CancelIcon />}>
@@ -723,15 +826,17 @@ const LessonComponent = () => {
             multiline
             rows={4}
           />
-          <TextField
-            label="Link (Optional)"
-            name="link"
-            value={newContent.link}
-            onChange={handleAddContentChange}
-            fullWidth
-            margin="normal"
-            helperText="Enter a valid URL to make the content a hyperlink."
-          />
+          {newContent.type === "Presentation" && (
+            <TextField
+              label="Link (Optional)"
+              name="link"
+              value={newContent.link}
+              onChange={handleAddContentChange}
+              fullWidth
+              margin="normal"
+              helperText="Enter the URL for the presentation link."
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleAddContentDialogClose} color="secondary" startIcon={<CancelIcon />}>
@@ -747,9 +852,7 @@ const LessonComponent = () => {
       <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
         <DialogTitle>Delete Content</DialogTitle>
         <DialogContent>
-          <Typography>
-            Are you sure you want to delete this content?
-          </Typography>
+          <Typography>Are you sure you want to delete this content?</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} color="secondary" startIcon={<CancelIcon />}>
