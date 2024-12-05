@@ -29,20 +29,15 @@ const AssignmentComponent = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [editMode, setEditMode] = useState({});
-  const [editedAssignments, setEditedAssignments] = useState({});
   const [alertOpen, setAlertOpen] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogType, setDialogType] = useState("add"); // 'add' or 'edit'
-  const [currentAssignment, setCurrentAssignment] = useState(null);
   const [newAssignment, setNewAssignment] = useState({
     assignmentID: "",
     name: "",
     description: "",
     dueDate: "",
   });
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [assignmentToDelete, setAssignmentToDelete] = useState(null);
 
   useEffect(() => {
     const fetchAssignments = async () => {
@@ -56,6 +51,7 @@ const AssignmentComponent = () => {
         }
 
         const data = await response.json();
+        console.log("Fetched assignments:", data); // Log the fetched data
 
         if (data && Array.isArray(data.assignments)) {
           setAssignments(data.assignments);
@@ -76,7 +72,6 @@ const AssignmentComponent = () => {
   const handleOpenDialog = (type, assignment = null) => {
     setDialogType(type);
     if (type === "edit" && assignment) {
-      setCurrentAssignment(assignment);
       setNewAssignment({
         assignmentID: assignment.assignmentID,
         name: assignment.name || assignment.assignmentName,
@@ -96,7 +91,6 @@ const AssignmentComponent = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setCurrentAssignment(null);
     setNewAssignment({
       assignmentID: "",
       name: "",
@@ -119,8 +113,8 @@ const AssignmentComponent = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            action: "add",
-            newAssignment: newAssignment,
+            action: "addAssignment",
+            data: { ...newAssignment, sectionID: section },
           }),
         }
       );
@@ -137,7 +131,7 @@ const AssignmentComponent = () => {
         console.error(data.error);
         setError(data.error);
       } else {
-        setAssignments(data.assignments);
+        setAssignments(data.assignments); // Update the assignments state with the latest data
         handleCloseDialog();
         setAlertOpen(true);
       }
@@ -148,21 +142,78 @@ const AssignmentComponent = () => {
   };
 
   const handleEditAssignment = async () => {
-    // Leave this function blank
+    try {
+      const response = await fetch(
+        `/api/dashboard/instructor/${instructorID}/course/${code}/${section}/assignments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "editAssignment",
+            data: { ...newAssignment, sectionID: section },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text(); // Capture the full response text
+        console.error("Server Error:", errorData);
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.error) {
+        console.error(data.error);
+        setError(data.error);
+      } else {
+        setAssignments(data.assignments); // Update the assignments state with the latest data
+        handleCloseDialog();
+        setAlertOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to edit assignment:", err);
+      setError(err.message);
+    }
   };
 
-  const handleDeleteAssignment = async () => {
-    // Leave this function blank
-  };
+  const handleDeleteAssignment = async (assignment) => {
+    try {
+      const response = await fetch(
+        `/api/dashboard/instructor/${instructorID}/course/${code}/${section}/assignments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "deleteAssignment",
+            data: { assignmentID: assignment.assignmentID },
+          }),
+        }
+      );
 
-  const handleDeleteClick = (assignment) => {
-    setAssignmentToDelete(assignment);
-    setDeleteDialogOpen(true);
-  };
+      if (!response.ok) {
+        const errorData = await response.text(); // Capture the full response text
+        console.error("Server Error:", errorData);
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
 
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setAssignmentToDelete(null);
+      const data = await response.json();
+
+      if (data.error) {
+        console.error(data.error);
+        setError(data.error);
+      } else {
+        setAssignments(data.assignments); // Update the assignments state with the latest data
+        setAlertOpen(true);
+      }
+    } catch (err) {
+      console.error("Failed to delete assignment:", err);
+      setError(err.message);
+    }
   };
 
   const handleAlertClose = () => {
@@ -243,7 +294,7 @@ const AssignmentComponent = () => {
                       <EditIcon />
                     </IconButton>
                     <IconButton
-                      onClick={() => handleDeleteClick(assignment)}
+                      onClick={() => handleDeleteAssignment(assignment)}
                       sx={{ color: "#f44336" }}
                       title="Delete Assignment"
                     >
@@ -319,24 +370,6 @@ const AssignmentComponent = () => {
               Save
             </Button>
           )}
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
-        <DialogTitle>Delete Assignment</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete the assignment "{assignmentToDelete?.name || assignmentToDelete?.assignmentName}"? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} color="secondary" startIcon={<CancelIcon />}>
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteAssignment} color="primary" startIcon={<DeleteIcon />}>
-            Delete
-          </Button>
         </DialogActions>
       </Dialog>
 

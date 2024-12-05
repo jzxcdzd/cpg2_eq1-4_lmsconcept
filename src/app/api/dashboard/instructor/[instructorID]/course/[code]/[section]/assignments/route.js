@@ -1,4 +1,3 @@
-// /app/api/dashboard/instructor/[instructorID]/course/[code]/[section]/assignments/route.js
 import { createConnection } from "@/lib/db.js";
 import { NextResponse } from "next/server";
 import dotenv from "dotenv";
@@ -6,149 +5,265 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export async function GET(req, context) {
+  const { section } = await context.params;
+  console.log("Section parameter (name):", section);
+
   try {
-    const { instructorID, code, section } = await context.params;
-
-    if (!instructorID || !code || !section) {
-      return NextResponse.json(
-        { error: "Missing required parameters: code, section, or instructorID" },
-        { status: 400 }
-      );
-    }
-
-    console.log(`Fetching assignments for instructorID: ${instructorID}, code: ${code}, section: ${section}`);
-
     const db = await createConnection("project");
 
-    const courseSql = `
-      SELECT 
-        Courses.courseID,
-        Sections.sectionID
-      FROM 
-        Courses
-      INNER JOIN 
-        Sections ON Courses.courseID = Sections.courseID
-      INNER JOIN 
-        Instructors ON Sections.instructorID = Instructors.instructorID
-      WHERE 
-        Instructors.instructorID = ?
-        AND Courses.code = ?
-        AND Sections.section = ?
-    `;
+    // Fetch sectionID based on the section name
+    const [sections] = await db.query(
+      `
+      SELECT sectionID
+      FROM Sections
+      WHERE section = ?
+      `,
+      [section]
+    );
 
-    const [courseDetails] = await db.query(courseSql, [instructorID, code, section]);
-
-    if (!courseDetails || courseDetails.length === 0) {
+    if (sections.length === 0) {
       return NextResponse.json(
-        { message: "No courses found for the given instructor, course code, and section." },
+        { error: "Section not found." },
         { status: 404 }
       );
     }
 
-    const { courseID, sectionID } = courseDetails[0];
+    const sectionID = sections[0].sectionID;
+    console.log("Section ID:", sectionID);
 
-    const assignmentsSql = `
-      SELECT 
-        Assignments.assignmentID,
-        Assignments.name AS assignmentName,
-        Assignments.description AS assignmentDescription,
-        Assignments.dueDate AS assignmentDueDate
-      FROM 
-        Assignments
-      INNER JOIN 
-        SectionAssignments ON Assignments.assignmentID = SectionAssignments.assignmentID
-      WHERE 
-        SectionAssignments.sectionID = ?
-    `;
+    // Fetch Assignments for the current section
+    const [assignments] = await db.query(
+      `
+      SELECT a.assignmentID, a.name, a.description, a.dueDate
+      FROM Assignments a
+      JOIN SectionAssignments sa ON a.assignmentID = sa.assignmentID
+      WHERE sa.sectionID = ?
+      `,
+      [sectionID]
+    );
+    console.log("Assignments fetched from database:", assignments);
 
-    const [assignments] = await db.query(assignmentsSql, [sectionID]);
-
-    console.log('Fetched assignments:', assignments);
-
-    return NextResponse.json({
-      assignments,
-    });
+    return NextResponse.json({ assignments }, { status: 200 });
   } catch (error) {
-    console.error("GET Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Error fetching assignments:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch assignments." },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req, context) {
+  const { section } = await context.params;
+
   try {
-    const { instructorID, code, section } = await context.params;
-    const { name, description, dueDate } = await req.json();
-
-    if (!instructorID || !code || !section) {
-      return NextResponse.json(
-        { error: "Missing required parameters: code, section, or instructorID" },
-        { status: 400 }
-      );
-    }
-
-    if (!name || !description || !dueDate) {
-      return NextResponse.json(
-        { error: "Missing assignment data: name, description, or dueDate" },
-        { status: 400 }
-      );
-    }
-
-    console.log(`Adding assignment for instructorID: ${instructorID}, code: ${code}, section: ${section}`);
-
     const db = await createConnection("project");
+    const { action, data } = await req.json();
 
-    const courseSql = `
-      SELECT 
-        Sections.sectionID
-      FROM 
-        Courses
-      INNER JOIN 
-        Sections ON Courses.courseID = Sections.courseID
-      INNER JOIN 
-        Instructors ON Sections.instructorID = Instructors.instructorID
-      WHERE 
-        Instructors.instructorID = ?
-        AND Courses.code = ?
-        AND Sections.section = ?
-    `;
-
-    const [courseDetails] = await db.query(courseSql, [instructorID, code, section]);
-
-    if (!courseDetails || courseDetails.length === 0) {
+    if (!action || !data) {
       return NextResponse.json(
-        { message: "No courses found for the given instructor, course code, and section." },
+        { error: "Action and data are required." },
+        { status: 400 }
+      );
+    }
+
+    // Fetch sectionID based on the section name
+    const [sections] = await db.query(
+      `
+      SELECT sectionID
+      FROM Sections
+      WHERE section = ?
+      `,
+      [section]
+    );
+
+    if (sections.length === 0) {
+      return NextResponse.json(
+        { error: "Section not found." },
         { status: 404 }
       );
     }
 
-    const { sectionID } = courseDetails[0];
+    const sectionID = sections[0].sectionID;
 
-    // Insert new assignment into Assignments table
+    switch (action) {
+      case "addAssignment":
+        return await addAssignment(db, data, sectionID);
+      case "deleteAssignment":
+        return await deleteAssignment(db, data, sectionID);
+      case "editAssignment":
+        return await editAssignment(db, data, sectionID);
+      default:
+        return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+    }
+  } catch (error) {
+    console.error("Error processing POST request:", error);
+    return NextResponse.json(
+      { error: "Internal server error." },
+      { status: 500 }
+    );
+  }
+}
+
+async function addAssignment(db, data, sectionID) {
+  const { name, description, dueDate } = data;
+
+  // Validation
+  if (!name || !description || !dueDate) {
+    return NextResponse.json(
+      { error: "All fields are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Insert the new assignment
     const insertAssignmentSql = `
       INSERT INTO Assignments (name, description, dueDate)
       VALUES (?, ?, ?)
     `;
+    const [assignmentResult] = await db.query(insertAssignmentSql, [
+      name,
+      description,
+      dueDate,
+    ]);
 
-    const [assignmentResult] = await db.query(insertAssignmentSql, [name, description, dueDate]);
+    const assignmentID = assignmentResult.insertId;
 
-    const newAssignmentID = assignmentResult.insertId;
-
-    // Associate the new assignment with the section
+    // Link the assignment to the current section
     const insertSectionAssignmentSql = `
       INSERT INTO SectionAssignments (sectionID, assignmentID)
       VALUES (?, ?)
     `;
+    await db.query(insertSectionAssignmentSql, [sectionID, assignmentID]);
 
-    await db.query(insertSectionAssignmentSql, [sectionID, newAssignmentID]);
+    // Fetch the updated list of assignments for the current section
+    const [assignments] = await db.query(
+      `
+      SELECT a.assignmentID, a.name, a.description, a.dueDate
+      FROM Assignments a
+      JOIN SectionAssignments sa ON a.assignmentID = sa.assignmentID
+      WHERE sa.sectionID = ?
+      `,
+      [sectionID]
+    );
 
-    console.log(`New assignment added with ID: ${newAssignmentID}`);
-
-    return NextResponse.json({
-      message: "Assignment added successfully",
-      assignmentID: newAssignmentID,
-    });
+    return NextResponse.json(
+      {
+        message: "Assignment added successfully.",
+        assignments,
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("POST Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Error adding assignment:", error);
+    return NextResponse.json(
+      { error: "Failed to add assignment." },
+      { status: 500 }
+    );
+  }
+}
+
+async function deleteAssignment(db, data, sectionID) {
+  const { assignmentID } = data;
+
+  // Validation
+  if (!assignmentID) {
+    return NextResponse.json(
+      { error: "Assignment ID is required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Delete the assignment from SectionAssignments
+    const deleteSectionAssignmentSql = `
+      DELETE FROM SectionAssignments
+      WHERE sectionID = ? AND assignmentID = ?
+    `;
+    await db.query(deleteSectionAssignmentSql, [sectionID, assignmentID]);
+
+    // Delete the assignment from Assignments
+    const deleteAssignmentSql = `
+      DELETE FROM Assignments
+      WHERE assignmentID = ?
+    `;
+    await db.query(deleteAssignmentSql, [assignmentID]);
+
+    // Fetch the updated list of assignments for the current section
+    const [assignments] = await db.query(
+      `
+      SELECT a.assignmentID, a.name, a.description, a.dueDate
+      FROM Assignments a
+      JOIN SectionAssignments sa ON a.assignmentID = sa.assignmentID
+      WHERE sa.sectionID = ?
+      `,
+      [sectionID]
+    );
+
+    return NextResponse.json(
+      {
+        message: "Assignment deleted successfully.",
+        assignments,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error deleting assignment:", error);
+    return NextResponse.json(
+      { error: "Failed to delete assignment." },
+      { status: 500 }
+    );
+  }
+}
+
+async function editAssignment(db, data, sectionID) {
+  const { assignmentID, name, description, dueDate } = data;
+
+  // Validation
+  if (!assignmentID || !name || !description || !dueDate) {
+    return NextResponse.json(
+      { error: "All fields are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Update the assignment
+    const editAssignmentSql = `
+      UPDATE Assignments SET name = ?, description = ?, dueDate = ?
+      WHERE assignmentID = ?
+    `;
+    await db.query(editAssignmentSql, [
+      name,
+      description,
+      dueDate,
+      assignmentID,
+    ]);
+
+    // Fetch the updated list of assignments for the current section
+    const [assignments] = await db.query(
+      `
+      SELECT a.assignmentID, a.name, a.description, a.dueDate
+      FROM Assignments a
+      JOIN SectionAssignments sa ON a.assignmentID = sa.assignmentID
+      WHERE sa.sectionID = ?
+      `,
+      [sectionID]
+    );
+
+    return NextResponse.json(
+      {
+        message: "Assignment updated successfully.",
+        assignments,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error updating assignment:", error);
+    return NextResponse.json(
+      { error: "Failed to update assignment." },
+      { status: 500 }
+    );
   }
 }
