@@ -14,34 +14,45 @@ import {
   Snackbar,
   Alert,
   MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 export default function Dashboard() {
   const [courses, setCourses] = useState([]);
   const [instructors, setInstructors] = useState([]);
   const [students, setStudents] = useState([]);
   const [sections, setSections] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-  
 
   useEffect(() => {
     fetchInitialData();
   }, []);
 
-    const fetchInitialData = async () => {
+  const fetchInitialData = async () => {
     try {
       const res = await fetch("/api/dashboard/admin/");
       const data = await res.json();
       if (res.ok) {
         setCourses(data.courses);
         setInstructors(data.instructors);
-        setStudents(data.students); // Add this line
-        setSections(data.sections); // Add this line
+        setStudents(data.students);
+        setSections(data.sections);
+        setEnrollments(data.enrollments);
+        console.log("Enrollments:", data.enrollments); // Debugging statement
       } else {
         showSnackbar(data.error || "Failed to fetch initial data.", "error");
       }
@@ -51,7 +62,7 @@ export default function Dashboard() {
     }
   };
 
-    const addOptions = [
+  const addOptions = [
     { label: "Add New Course", color: "primary", type: "course" },
     { label: "Assign Sections & Instructors", color: "primary", type: "sections" },
     { label: "Add New Student", color: "primary", type: "student" },
@@ -59,15 +70,17 @@ export default function Dashboard() {
     { label: "Assign Student to Section", color: "primary", type: "assignStudent" },
   ];
 
-    const [dialogState, setDialogState] = useState({
+  const [dialogState, setDialogState] = useState({
     course: false,
     sections: false,
     student: false,
     instructor: false,
-    assignStudent: false, // Add this
+    assignStudent: false,
+    editCourse: false,
+    editAssignments: false,
   });
-  
-    // Update the initial state
+
+  // Initialize newEntry with editAssignments
   const [newEntry, setNewEntry] = useState({
     course: { courseName: "", courseCode: "", description: "" },
     sections: { courseID: "", section: "", instructorID: "" },
@@ -87,6 +100,8 @@ export default function Dashboard() {
       password: "",
     },
     assignStudent: { studentID: "", courseID: "", sectionID: "" },
+    editCourse: { courseID: "", courseName: "", courseCode: "", description: "" },
+    editAssignments: {}, // Added this line
   });
 
   // Handlers for Dialogs
@@ -96,13 +111,17 @@ export default function Dashboard() {
 
   const handleCloseDialog = (type) => {
     setDialogState((prev) => ({ ...prev, [type]: false }));
-    setNewEntry((prev) => ({
-      ...prev,
-      [type]: Object.keys(prev[type]).reduce((acc, key) => {
-        acc[key] = "";
-        return acc;
-      }, {}),
-    }));
+  
+    // Check if the type exists in newEntry before attempting to reset
+    if (newEntry.hasOwnProperty(type)) {
+      setNewEntry((prev) => ({
+        ...prev,
+        [type]: Object.keys(prev[type]).reduce((acc, key) => {
+          acc[key] = "";
+          return acc;
+        }, {}),
+      }));
+    }
   };
 
   const handleChange = (type, e) => {
@@ -117,35 +136,38 @@ export default function Dashboard() {
     const dataToSend = newEntry[type];
 
     // Validation
-  const isValid = Object.values(dataToSend).every(
-    (field) => field.toString().trim() !== ""
-  );
-  if (!isValid) {
-    showSnackbar("All fields are required.", "error");
-    return;
-  }
+    const isValid = Object.values(dataToSend).every(
+      (field) => field.toString().trim() !== ""
+    );
+    if (!isValid) {
+      showSnackbar("All fields are required.", "error");
+      return;
+    }
 
-  let action = "";
-  switch (type) {
-    case "course":
-      action = "addCourse";
-      break;
-    case "sections":
-      action = "assignSections";
-      break;
-    case "student":
-      action = "addStudent";
-      break;
-    case "instructor":
-      action = "addInstructor";
-      break;
+    let action = "";
+    switch (type) {
+      case "course":
+        action = "addCourse";
+        break;
+      case "sections":
+        action = "assignSections";
+        break;
+      case "student":
+        action = "addStudent";
+        break;
+      case "instructor":
+        action = "addInstructor";
+        break;
       case "assignStudent":
         action = "assignStudent";
+        break;
+      case "editCourse":
+        action = "editCourse";
         break;
       default:
         return;
     }
-  
+
     try {
       const response = await fetch("/api/dashboard/admin/", {
         method: "POST",
@@ -154,15 +176,20 @@ export default function Dashboard() {
         },
         body: JSON.stringify({ action, data: dataToSend }),
       });
-  
+
       const data = await response.json();
-  
+
       if (response.ok) {
-        showSnackbar(`Student was added successfully into the section!`, "success");
+        showSnackbar(
+          type === "editCourse"
+            ? `Course updated successfully!`
+            : `Action completed successfully!`,
+          "success"
+        );
         handleCloseDialog(type);
         fetchInitialData(); // Refresh data
       } else {
-        showSnackbar(data.error || `Failed to add ${type}.`, "error");
+        showSnackbar(data.error || `Failed to ${type}.`, "error");
       }
     } catch (error) {
       console.error("Error on submit:", error);
@@ -178,6 +205,30 @@ export default function Dashboard() {
 
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
+  };
+
+  const handleDeleteEnrollment = async (enrollmentID) => {
+    try {
+      const response = await fetch("/api/dashboard/admin/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "deleteEnrollment", data: { enrollmentID } }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showSnackbar("Enrollment deleted successfully.", "success");
+        fetchInitialData();
+      } else {
+        showSnackbar(data.error || "Failed to delete enrollment.", "error");
+      }
+    } catch (error) {
+      console.error("Error deleting enrollment:", error);
+      showSnackbar("An unexpected error occurred.", "error");
+    }
   };
 
   // Utility function to capitalize first letter
@@ -219,6 +270,53 @@ export default function Dashboard() {
               {renderDialog(option.type)}
             </Grid>
           ))}
+        </Grid>
+      </Box>
+
+      {/* Edit Functions Section */}
+      <Box sx={{ marginBottom: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          Edit Functions
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              variant="outlined"
+              color="primary"
+              sx={{
+                width: "100%",
+                height: "100%",
+                fontSize: "1.2rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 2,
+              }}
+              onClick={() => handleOpenDialog("editCourse")}
+            >
+              Edit Courses
+            </Button>
+            {renderDialog("editCourse")}
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              sx={{
+                width: "100%",
+                height: "100%",
+                fontSize: "1.2rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 2,
+              }}
+              onClick={() => handleOpenDialog("editAssignments")}
+            >
+              Edit Student Assignments
+            </Button>
+            {renderDialog("editAssignments")}
+          </Grid>
         </Grid>
       </Box>
 
@@ -307,6 +405,150 @@ export default function Dashboard() {
             </DialogActions>
           </Dialog>
         );
+
+        case "editCourse":
+        return (
+          <Dialog
+            open={dialogState.editCourse}
+            onClose={() => handleCloseDialog("editCourse")}
+            fullWidth
+            maxWidth="sm"
+          >
+            <DialogTitle>Edit Course</DialogTitle>
+            <DialogContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  marginTop: 1,
+                }}
+              >
+                <TextField
+                  select
+                  label="Select Course"
+                  name="courseID"
+                  value={newEntry.editCourse.courseID}
+                  onChange={(e) => handleChange("editCourse", e)}
+                  fullWidth
+                  required
+                >
+                  {courses.map((course) => (
+                    <MenuItem key={course.courseID} value={course.courseID}>
+                      {course.name} ({course.code})
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Course Name"
+                  name="courseName"
+                  value={newEntry.editCourse.courseName}
+                  onChange={(e) => handleChange("editCourse", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Course Code"
+                  name="courseCode"
+                  value={newEntry.editCourse.courseCode}
+                  onChange={(e) => handleChange("editCourse", e)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Description"
+                  name="description"
+                  value={newEntry.editCourse.description}
+                  onChange={(e) => handleChange("editCourse", e)}
+                  fullWidth
+                  required
+                  multiline
+                  rows={4}
+                />
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => handleCloseDialog("editCourse")}
+                color="secondary"
+                startIcon={<CancelIcon />}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleSubmit("editCourse")}
+                color="primary"
+                variant="contained"
+                startIcon={<SaveIcon />}
+              >
+                Save Changes
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+
+        case "editAssignments":
+        return (
+          <Dialog
+            open={dialogState.editAssignments}
+            onClose={() => handleCloseDialog("editAssignments")}
+            fullWidth
+            maxWidth="md"
+          >
+            <DialogTitle>Edit Student Assignments</DialogTitle>
+            <DialogContent>
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Student Name</TableCell>
+                      <TableCell>Course Code</TableCell>
+                      <TableCell>Section</TableCell>
+                      <TableCell align="center">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {Array.isArray(enrollments) && enrollments.length > 0 ? (
+                      enrollments.map((enrollment) => (
+                        <TableRow key={enrollment.enrollmentID}>
+                          <TableCell>
+                            {enrollment.studentFirstName} {enrollment.studentLastName}
+                          </TableCell>
+                          <TableCell>{enrollment.courseCode}</TableCell>
+                          <TableCell>{enrollment.sectionName}</TableCell>
+                          <TableCell align="center">
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteEnrollment(enrollment.enrollmentID)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">
+                          No student assignments found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => handleCloseDialog("editAssignments")}
+                color="secondary"
+                startIcon={<CancelIcon />}
+              >
+                Cancel
+              </Button>
+            </DialogActions>
+          </Dialog>
+        );
+
         case "sections":
       return (
         <Dialog
@@ -483,6 +725,67 @@ export default function Dashboard() {
             </DialogActions>
           </Dialog>
         );
+
+        case "editAssignments":
+          return (
+            <Dialog
+              open={dialogState.editAssignments}
+              onClose={() => handleCloseDialog("editAssignments")}
+              fullWidth
+              maxWidth="md"
+            >
+              <DialogTitle>Edit Student Assignments</DialogTitle>
+              <DialogContent>
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Student Name</TableCell>
+                        <TableCell>Course Code</TableCell>
+                        <TableCell>Section</TableCell>
+                        <TableCell align="center">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {enrollments.map((enrollment) => (
+                        <TableRow key={enrollment.enrollmentID}>
+                          <TableCell>
+                            {enrollment.studentFirstName} {enrollment.studentLastName}
+                          </TableCell>
+                          <TableCell>{enrollment.courseCode}</TableCell>
+                          <TableCell>{enrollment.sectionName}</TableCell>
+                          <TableCell align="center">
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteEnrollment(enrollment.enrollmentID)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {enrollments.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} align="center">
+                            No student assignments found.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </DialogContent>
+              <DialogActions>
+                <Button
+                  onClick={() => handleCloseDialog("editAssignments")}
+                  color="secondary"
+                  startIcon={<CancelIcon />}
+                >
+                  Close
+                </Button>
+              </DialogActions>
+            </Dialog>
+          );
             // In the renderDialog function
       case "instructor":
         return (

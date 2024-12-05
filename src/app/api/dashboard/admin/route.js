@@ -21,20 +21,42 @@ export async function GET(req, context) {
       FROM Instructors
     `);
 
-    // **Fetch Students**
+    // Fetch Students
     const [students] = await db.query(`
       SELECT studentID, firstName, lastName, email
       FROM Students
     `);
 
-        // In the GET handler
+    // Fetch Sections
     const [sections] = await db.query(`
       SELECT s.sectionID, s.section, s.courseID, c.name AS courseName
       FROM Sections s
       JOIN Courses c ON s.courseID = c.courseID
     `);
+
+    // Fetch Enrollments with sectionName
+    const [enrollments] = await db.query(`
+      SELECT 
+        e.enrollmentID, 
+        e.studentID, 
+        e.courseID, 
+        e.sectionID,
+        s.firstName AS studentFirstName, 
+        s.lastName AS studentLastName,
+        c.code AS courseCode,
+        sec.section AS sectionName
+      FROM 
+        Enrollments e
+      JOIN 
+        Students s ON e.studentID = s.studentID
+      JOIN 
+        Sections sec ON e.sectionID = sec.sectionID
+      JOIN 
+        Courses c ON sec.courseID = c.courseID
+    `);
+
     return NextResponse.json(
-      { courses, instructors, students, sections },
+      { courses, instructors, students, sections, enrollments },
       { status: 200 }
     );
   } catch (error) {
@@ -75,6 +97,8 @@ export async function POST(req, context) {
         return await editStudent(db, data);
       case "editSection":
         return await editSection(db, data);
+      case "deleteEnrollment":
+        return await deleteEnrollment(db, data);
       default:
         return NextResponse.json(
           { error: "Invalid action." },
@@ -492,6 +516,45 @@ async function editSection(db, data) {
     console.error("Error updating section:", error);
     return NextResponse.json(
       { error: "Failed to update section." },
+      { status: 500 }
+    );
+  }
+}
+
+// Handler to delete a student's enrollment
+async function deleteEnrollment(db, data) {
+  const { enrollmentID } = data;
+
+  // Validation
+  if (!enrollmentID) {
+    return NextResponse.json(
+      { error: "Enrollment ID is required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const deleteSql = `
+      DELETE FROM Enrollments
+      WHERE enrollmentID = ?
+    `;
+    const [result] = await db.query(deleteSql, [enrollmentID]);
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { error: "Enrollment not found." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: "Enrollment deleted successfully." },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error deleting enrollment:", error);
+    return NextResponse.json(
+      { error: "Failed to delete enrollment." },
       { status: 500 }
     );
   }
